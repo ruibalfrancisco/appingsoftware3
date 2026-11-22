@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -75,7 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -140,7 +140,7 @@ jobs:
       DATABASE_URL: postgresql://reclamos:reclamos@localhost:5432/reclamos
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
@@ -186,7 +186,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: false
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v10.4.0
         with:
           version: ${{ env.UV_VERSION }}
       - name: Vulnerabilidades en dependencias de Python (pip-audit)
