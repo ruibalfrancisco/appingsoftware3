@@ -1,0 +1,66 @@
+# Servicios de apoyo para desarrollo local:
+#   docker compose -f infra/docker-compose.yml up -d
+# La API y la web corren fuera de Docker (uvicorn y vite) para tener recarga en caliente.
+# Todas las credenciales de este archivo son solo para tu máquina.
+name: reclamos
+
+services:
+  db:
+    # Mantener alineada con la versión del servicio db de Railway y con ci.yml.
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_USER: reclamos
+      POSTGRES_PASSWORD: reclamos
+      POSTGRES_DB: reclamos
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U reclamos -d reclamos']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Servidor compatible con S3, en lugar del Railway Bucket. Reemplaza a MinIO, que dejó
+  # de publicar imágenes de Docker.
+  fotos:
+    image: rustfs/rustfs:1.0.6
+    environment:
+      RUSTFS_ACCESS_KEY: reclamos
+      RUSTFS_SECRET_KEY: reclamos-local
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ADDRESS: 0.0.0.0:9001
+      RUSTFS_CONSOLE_ENABLE: 'true'
+    ports:
+      - '127.0.0.1:9000:9000' # API S3
+      - '127.0.0.1:9001:9001' # consola web
+    volumes:
+      - fotos:/data
+
+  # Crea el bucket "fotos" una vez que el servidor responde, y termina.
+  crear-bucket:
+    image: amazon/aws-cli:2.42.1
+    depends_on:
+      - fotos
+    environment:
+      AWS_ACCESS_KEY_ID: reclamos
+      AWS_SECRET_ACCESS_KEY: reclamos-local
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >
+        until aws --endpoint-url http://fotos:9000 s3 ls >/dev/null 2>&1; do sleep 1; done;
+        aws --endpoint-url http://fotos:9000 s3 mb s3://fotos || true
+    restart: 'no'
+
+  # Atrapa todos los emails: SMTP en 1025 y bandeja web en http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.34
+    ports:
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
+
+volumes:
+  db:
+  fotos:

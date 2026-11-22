@@ -1,0 +1,86 @@
+# Pasos comunes para desplegar en un ambiente de Railway y verificarlo.
+# El job que la usa define RAILWAY_TOKEN (token de proyecto del ambiente) en su env.
+name: desplegar
+description: Sube api y web a Railway, espera la versión nueva y corre el smoke test.
+
+inputs:
+  ambiente:
+    description: Ambiente de Railway (staging o production)
+    required: true
+  proyecto:
+    description: Project ID de Railway
+    required: true
+  web-url:
+    description: URL pública del servicio web en ese ambiente
+    required: true
+  api-url:
+    description: URL pública del servicio api en ese ambiente
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: '24'
+        cache: npm
+        cache-dependency-path: e2e/package-lock.json
+
+    - name: Instalar el CLI de Railway (versión fija)
+      shell: bash
+      run: |
+        npm install -g @railway/cli@5.75.0
+        railway --version
+
+    - name: Anotar versión y commit para /health
+      shell: bash
+      run: |
+        version="$(tr -d '[:space:]' < VERSION)"
+        printf '{"version": "%s", "commit": "%s"}\n' "$version" "$GITHUB_SHA" > backend/build_info.json
+        cat backend/build_info.json
+
+    # --ci espera el build y falla si falla: sin él, el job daría verde aunque Railway no desplegara.
+    - name: Desplegar api
+      shell: bash
+      run: >
+        railway up backend --path-as-root --ci
+        --project "${{ inputs.proyecto }}" --environment "${{ inputs.ambiente }}" --service api
+        --message "${GITHUB_SHA::7} · run ${GITHUB_RUN_ID}"
+
+    - name: Desplegar web
+      shell: bash
+      run: >
+        railway up frontend --path-as-root --ci
+        --project "${{ inputs.proyecto }}" --environment "${{ inputs.ambiente }}" --service web
+        --message "${GITHUB_SHA::7} · run ${GITHUB_RUN_ID}"
+
+    # El build terminó, pero Railway todavía corre las migraciones y el healthcheck antes de
+    # pasar el tráfico a la versión nueva. Se espera hasta que /health informe este commit.
+    - name: Esperar a que la versión nueva esté publicada
+      shell: bash
+      env:
+        API_URL: ${{ inputs.api-url }}
+      run: |
+        for intento in $(seq 1 60); do
+          commit="$(curl -fsS "${API_URL%/}/health" | jq -r .commit || true)"
+          if [ "$commit" = "$GITHUB_SHA" ]; then
+            echo "Publicado ${GITHUB_SHA::7} después de ${intento} intentos"
+            exit 0
+          fi
+          echo "Intento ${intento}: /health informa '${commit:-sin respuesta}'"
+          sleep 10
+        done
+        echo "::error::La versión nueva no se publicó en 10 minutos. Revisá el deployment y las migraciones en Railway."
+        exit 1
+
+    - name: Smoke test
+      shell: bash
+      working-directory: e2e
+      env:
+        WEB_URL: ${{ inputs.web-url }}
+        API_URL: ${{ inputs.api-url }}
+        EXPECTED_COMMIT: ${{ github.sha }}
+      run: |
+        npm ci --no-audit --no-fund
+        npx playwright install --with-deps chromium
+        npx playwright test --project=smoke

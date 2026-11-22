@@ -1,0 +1,78 @@
+# Entrega continua: cada push a main pasa por CI, se despliega a staging con smoke test y
+# queda esperando aprobación manual para producción (ambiente "production" de GitHub).
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Nunca dos despliegues a la vez; el que llega después espera su turno.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    # Las mismas pruebas que en el PR, sobre el commit exacto que se va a desplegar.
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+      pull-requests: read
+
+  staging:
+    needs: ci
+    # Hasta que Railway esté configurado (sección 6 de la guía), el despliegue se saltea.
+    if: vars.RAILWAY_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: staging
+      url: ${{ vars.WEB_URL }}
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/desplegar
+        with:
+          ambiente: staging
+          proyecto: ${{ vars.RAILWAY_PROJECT_ID }}
+          web-url: ${{ vars.WEB_URL }}
+          api-url: ${{ vars.API_URL }}
+
+  production:
+    needs: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Acá GitHub frena hasta que un revisor apruebe (Required reviewers del ambiente).
+    environment:
+      name: production
+      url: ${{ vars.WEB_URL }}
+    permissions:
+      contents: write # para crear el tag de versión
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/desplegar
+        with:
+          ambiente: production
+          proyecto: ${{ vars.RAILWAY_PROJECT_ID }}
+          web-url: ${{ vars.WEB_URL }}
+          api-url: ${{ vars.API_URL }}
+
+      - name: Etiquetar la versión (SemVer desde el archivo VERSION)
+        run: |
+          tag="v$(tr -d '[:space:]' < VERSION)"
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null; then
+            echo "::notice::El tag ${tag} ya existe. Subí VERSION en un PR para publicar una versión nueva."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              tag -a "${tag}" -m "Release ${tag} (${GITHUB_SHA::7})" "${GITHUB_SHA}"
+          git push origin "${tag}"
+          echo "### Publicado ${tag} en producción" >> "$GITHUB_STEP_SUMMARY"

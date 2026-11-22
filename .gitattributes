@@ -1,0 +1,7 @@
+# Finales de línea LF en el repositorio y en la copia de trabajo, también en Windows:
+# los Dockerfile, scripts y archivos de Railway se ejecutan en Linux.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary

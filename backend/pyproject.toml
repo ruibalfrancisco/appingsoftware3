@@ -1,0 +1,62 @@
+[project]
+name = "reclamos-api"
+version = "0.1.0"
+description = "API de Reclamos Villa Allende"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.20.1",
+    "fastapi>=0.165.0",
+    "psycopg[binary]>=3.3.9",
+    "pydantic-settings>=2.16.3",
+    "sqlalchemy>=2.1.9",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.2",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.6",
+]
+
+[tool.uv]
+# Aplicación, no librería: uv instala las dependencias pero no empaqueta el proyecto.
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "S", "C4", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"] # permitir tildes y signos del español
+
+[tool.ruff.lint.isort]
+# La carpeta alembic/ del proyecto no es el paquete alembic.
+known-third-party = ["alembic"]
+known-first-party = ["app"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"] # assert y contraseñas de prueba
+"alembic/**" = ["N999"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["app"]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = ["integracion: necesita PostgreSQL con PostGIS (DATABASE_URL)"]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

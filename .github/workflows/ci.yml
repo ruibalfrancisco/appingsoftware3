@@ -1,0 +1,203 @@
+# Integración continua: corre en cada pull request y, desde deploy.yml, en cada push a main.
+# Los nombres de los jobs son los "status checks" que exige la regla de la rama main.
+name: ci
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # En un PR, un push nuevo cancela la corrida vieja; en main no se cancela nada.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  UV_VERSION: '0.13.9'
+  NODE_VERSION: '24'
+
+jobs:
+  lint-y-tipos:
+    name: lint-y-tipos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Backend · dependencias
+        working-directory: backend
+        run: uv sync --locked
+      - name: Backend · ruff (lint)
+        working-directory: backend
+        run: uv run ruff check --output-format=github .
+      - name: Backend · ruff (formato)
+        working-directory: backend
+        run: uv run ruff format --check .
+      - name: Backend · mypy (tipos)
+        working-directory: backend
+        run: uv run mypy
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+      - name: Frontend · dependencias
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund
+      - name: Frontend · ESLint
+        working-directory: frontend
+        run: npm run lint
+      - name: Frontend · Prettier
+        working-directory: frontend
+        run: npm run format:check
+      - name: Frontend · tsc (tipos)
+        working-directory: frontend
+        run: npm run typecheck
+      - name: E2E · tsc (tipos)
+        working-directory: e2e
+        run: npm ci --no-audit --no-fund && npm run typecheck
+
+  unitarias:
+    name: unitarias
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Backend · pruebas unitarias con cobertura
+        working-directory: backend
+        run: |
+          uv sync --locked
+          uv run python -m pytest -m "not integracion" --cov=app --cov-report=term-missing --cov-report=xml
+      - name: Backend · umbral de 80 % en el dominio (RNF-10)
+        working-directory: backend
+        run: |
+          {
+            echo '### Cobertura del dominio (backend)'
+            echo '```'
+            uv run python -m coverage report --include='app/dominio/*'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          uv run python -m coverage report --include='app/dominio/*' --fail-under=80
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend · pruebas unitarias con cobertura (umbral 70 %)
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run test:cov
+
+      - name: Guardar reportes de cobertura
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: cobertura
+          path: |
+            backend/coverage.xml
+            frontend/coverage/lcov.info
+          if-no-files-found: ignore
+
+  integracion:
+    name: integracion
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      db:
+        # Misma imagen que infra/docker-compose.yml.
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: reclamos
+          POSTGRES_PASSWORD: reclamos
+          POSTGRES_DB: reclamos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U reclamos -d reclamos"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgresql://reclamos:reclamos@localhost:5432/reclamos
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Pruebas de integración contra PostGIS real
+        working-directory: backend
+        run: |
+          uv sync --locked
+          uv run python -m pytest -m integracion -v
+
+  imagenes:
+    name: imagenes
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Construir la imagen de la api
+        run: docker build -t reclamos-api:ci backend
+      - name: Construir la imagen de la web
+        run: docker build -t reclamos-web:ci --build-arg VITE_API_URL=http://localhost:8000 frontend
+      - name: Probar que los contenedores arrancan y responden
+        run: |
+          docker run -d --name api -e PORT=8000 -p 8000:8000 reclamos-api:ci
+          docker run -d --name web -e PORT=8080 -p 8080:8080 reclamos-web:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8000/health && curl -fsS -o /dev/null http://localhost:8080/ && exit 0
+            sleep 1
+          done
+          docker logs api; docker logs web
+          exit 1
+
+  seguridad:
+    name: seguridad
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # gitleaks revisa todo el historial, no solo el último commit
+      - name: Secretos (gitleaks)
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Vulnerabilidades en dependencias de Python (pip-audit)
+        working-directory: backend
+        run: |
+          uv export --frozen --no-dev --no-hashes --format requirements-txt --output-file "$RUNNER_TEMP/requirements.txt"
+          uvx pip-audit==2.10.1 --requirement "$RUNNER_TEMP/requirements.txt" --no-deps --disable-pip --strict
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Vulnerabilidades en dependencias de producción del frontend (npm audit)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
