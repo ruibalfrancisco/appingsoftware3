@@ -32,7 +32,7 @@ main ──► deploy.yml: ci ──► staging (Railway) + smoke ──► apro
 
 ## Desarrollo local
 
-Requisitos: Git, Docker Desktop, Node.js 24 LTS y [uv](https://docs.astral.sh/uv/) (uv instala
+Requisitos: Git, Docker Desktop, Node.js 26 LTS y [uv](https://docs.astral.sh/uv/) (uv instala
 Python 3.12 solo).
 
 ```bash
