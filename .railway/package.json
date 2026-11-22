@@ -1,0 +1,9 @@
+{
+  "name": "reclamos-railway-iac",
+  "private": true,
+  "description": "Infraestructura de Railway como código (railway config plan/apply)",
+  "type": "module",
+  "devDependencies": {
+    "railway": "3.17.0"
+  }
+}

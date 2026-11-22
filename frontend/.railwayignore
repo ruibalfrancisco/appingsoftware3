@@ -1,0 +1,6 @@
+# Lo que railway up nunca debe subir (además de lo que excluye .dockerignore).
+node_modules/
+dist/
+coverage/
+.env
+.env.*

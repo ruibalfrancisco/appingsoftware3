@@ -12,6 +12,7 @@ frontend/   React 19 + Vite + TypeScript + Tailwind (servicio "web" en Railway)
 backend/    FastAPI + SQLAlchemy + Alembic, Python 3.12 con uv (servicio "api")
 e2e/        Playwright: smoke test después de cada despliegue (y los E2E más adelante)
 infra/      docker-compose con PostGIS, RustFS (S3) y Mailpit para desarrollo local
+.railway/   Infraestructura de Railway como código (servicios, base, regiones, healthchecks)
 docs/adr/   Decisiones de arquitectura con alternativas descartadas
 .github/    Workflows de CI/CD, acción de despliegue y Dependabot
 ```

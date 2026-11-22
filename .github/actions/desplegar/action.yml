@@ -24,13 +24,23 @@ runs:
       with:
         node-version: '26'
         cache: npm
-        cache-dependency-path: e2e/package-lock.json
+        cache-dependency-path: |
+          e2e/package-lock.json
+          .railway/package-lock.json
 
     - name: Instalar el CLI de Railway (versión fija)
       shell: bash
       run: |
         npm install -g @railway/cli@5.75.0
         railway --version
+
+    # La infraestructura (.railway/railway.ts) llega a cada ambiente por el mismo camino que el
+    # código. Sin --confirm-destructive, Railway rechaza cualquier cambio que borre recursos.
+    - name: Aplicar infraestructura (railway config apply)
+      shell: bash
+      run: |
+        npm ci --prefix .railway --no-audit --no-fund
+        railway config apply --environment "${{ inputs.ambiente }}" --yes
 
     - name: Anotar versión y commit para /health
       shell: bash
@@ -40,17 +50,18 @@ runs:
         cat backend/build_info.json
 
     # --ci espera el build y falla si falla: sin él, el job daría verde aunque Railway no desplegara.
+    # timeout: si el deployment falla por configuración, el CLI puede quedarse esperando.
     - name: Desplegar api
       shell: bash
       run: >
-        railway up backend --path-as-root --ci
+        timeout 15m railway up backend --path-as-root --ci
         --project "${{ inputs.proyecto }}" --environment "${{ inputs.ambiente }}" --service api
         --message "${GITHUB_SHA::7} · run ${GITHUB_RUN_ID}"
 
     - name: Desplegar web
       shell: bash
       run: >
-        railway up frontend --path-as-root --ci
+        timeout 15m railway up frontend --path-as-root --ci
         --project "${{ inputs.proyecto }}" --environment "${{ inputs.ambiente }}" --service web
         --message "${GITHUB_SHA::7} · run ${GITHUB_RUN_ID}"
 
