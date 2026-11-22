@@ -1,4 +1,8 @@
 # Actualizaciones semanales agrupadas, para no llenar el repo de PRs sueltos.
+#
+# Hasta el final (diciembre de 2026) solo se aceptan parches y versiones menores: un salto
+# de versión mayor (Python 3.15, TypeScript 7, ESLint 10...) es un cambio de plataforma que se
+# decide a propósito, no en medio de la entrega. Las alertas de seguridad siguen llegando igual.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -16,6 +20,9 @@ updates:
     groups:
       python:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
     directories: [/frontend, /e2e]
@@ -24,8 +31,16 @@ updates:
     groups:
       npm:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
 
+  # Imágenes base: solo parches (python 3.12.x, nginx 1.30.x, node 26.x).
+  # Python 3.13+ choca con requires-python y nginx impar es la rama mainline, no la estable.
   - package-ecosystem: docker
     directories: [/backend, /frontend]
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major, version-update:semver-minor]
