@@ -1,0 +1,11 @@
+# Lo que railway up nunca debe subir (además de lo que excluye .dockerignore).
+.venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+.env
+.env.*

@@ -8,9 +8,10 @@ la decisión cambia, se escribe uno nuevo que lo reemplaza.
 | --- | --- | --- |
 | [0001](0001-monorepo-con-un-solo-pipeline.md) | Monorepo con un solo pipeline | Aceptada |
 | [0002](0002-entrega-continua-con-aprobacion-manual.md) | Entrega continua con aprobación manual | Aceptada |
-| [0003](0003-github-actions-despliega-con-el-cli-de-railway.md) | GitHub Actions despliega con el CLI de Railway | Aceptada |
+| [0003](0003-github-actions-despliega-con-el-cli-de-railway.md) | GitHub Actions despliega con el CLI de Railway | Aceptada; `railway.toml` reemplazado por el 0006 |
 | [0004](0004-uv-y-lockfiles-para-dependencias.md) | uv y lockfiles para dependencias | Aceptada |
 | [0005](0005-rustfs-como-s3-local.md) | RustFS como S3 local en lugar de MinIO | Aceptada |
+| [0006](0006-infraestructura-de-railway-como-codigo.md) | Infraestructura de Railway como código | Aceptada (reemplaza parte del 0003) |
 
 Pendientes de escribir (ver "Decisiones a justificar" en el documento de requerimientos):
 Google Maps simulado en CI, PostGIS para distancias y geocerca, prioridad con logaritmo, base
