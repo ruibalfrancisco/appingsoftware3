@@ -5,10 +5,12 @@ export interface Salud {
   ambiente: string
 }
 
-const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/$/, '')
+// La API se sirve en el mismo dominio que la web, bajo /api: en producción la reenvía nginx
+// y en desarrollo el proxy de Vite (vite.config.ts). Así la cookie de sesión es propia.
+export const API_BASE = '/api'
 
 export async function obtenerSalud(signal?: AbortSignal): Promise<Salud> {
-  const respuesta = await fetch(`${API_URL}/health`, { signal })
+  const respuesta = await fetch(`${API_BASE}/health`, { signal })
   if (!respuesta.ok) {
     throw new Error(`La API respondió ${respuesta.status}`)
   }

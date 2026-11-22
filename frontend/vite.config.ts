@@ -3,9 +3,21 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
+// En desarrollo (y en `vite preview`) /api se reenvía a la API local, igual que hace nginx en
+// Railway: el navegador ve un solo dominio.
+const proxyApi = {
+  '/api': {
+    target: process.env.API_INTERNAL_URL ?? 'http://localhost:8000',
+    changeOrigin: true,
+    rewrite: (ruta: string) => ruta.replace(/^\/api/, ''),
+  },
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  server: { proxy: proxyApi },
+  preview: { proxy: proxyApi },
   // Un solo .env en la raíz del monorepo; Vite solo expone las variables VITE_*.
   envDir: '..',
   test: {

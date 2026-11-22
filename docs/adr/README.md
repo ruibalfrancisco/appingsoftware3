@@ -12,6 +12,7 @@ la decisión cambia, se escribe uno nuevo que lo reemplaza.
 | [0004](0004-uv-y-lockfiles-para-dependencias.md) | uv y lockfiles para dependencias | Aceptada |
 | [0005](0005-rustfs-como-s3-local.md) | RustFS como S3 local en lugar de MinIO | Aceptada |
 | [0006](0006-infraestructura-de-railway-como-codigo.md) | Infraestructura de Railway como código | Aceptada (reemplaza parte del 0003) |
+| [0007](0007-la-web-hace-de-proxy-de-la-api.md) | La web hace de proxy de la API (cookies propias) | Aceptada |
 
 Pendientes de escribir (ver "Decisiones a justificar" en el documento de requerimientos):
 Google Maps simulado en CI, PostGIS para distancias y geocerca, prioridad con logaritmo, base
