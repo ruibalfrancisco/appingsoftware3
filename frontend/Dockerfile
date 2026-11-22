@@ -19,7 +19,7 @@ ENV VITE_API_URL=$VITE_API_URL \
 RUN npm run build
 
 # Etapa 2: servir los archivos con nginx.
-FROM nginx:1.30-alpine
+FROM nginx:1.31-alpine
 # La imagen oficial reemplaza ${PORT} en las plantillas al arrancar.
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
