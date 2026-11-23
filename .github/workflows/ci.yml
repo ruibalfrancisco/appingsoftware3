@@ -151,6 +151,94 @@ jobs:
           uv sync --locked
           uv run python -m pytest -m integracion -v
 
+  # Recorridos completos en un navegador real contra la app levantada acá mismo:
+  # API (uvicorn) + web (build de producción con el proxy /api) + PostGIS + Mailpit.
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      db:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: reclamos
+          POSTGRES_PASSWORD: reclamos
+          POSTGRES_DB: reclamos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U reclamos -d reclamos"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+      mailpit:
+        image: axllent/mailpit:v1.34
+        ports:
+          - 1025:1025
+          - 8025:8025
+    env:
+      DATABASE_URL: postgresql://reclamos:reclamos@localhost:5432/reclamos
+      EMAIL_BACKEND: smtp
+      SMTP_HOST: localhost
+      SMTP_PORT: '1025'
+      FRONTEND_URL: http://localhost:4173
+      WEB_URL: http://localhost:4173
+      API_URL: http://localhost:8000
+      MAILPIT_URL: http://localhost:8025
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.4.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Levantar la API
+        working-directory: backend
+        run: |
+          uv sync --locked
+          uv run alembic upgrade head
+          nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &
+      - name: Levantar la web (build de producción con proxy /api)
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          nohup npx vite preview --port 4173 --strictPort > "$RUNNER_TEMP/web.log" 2>&1 &
+      - name: Esperar a que la web y la API respondan
+        run: |
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:4173/api/health && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/api.log" "$RUNNER_TEMP/web.log"
+          exit 1
+
+      - name: E2E con Playwright (Chromium, celular)
+        working-directory: e2e
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          npx playwright test --project=e2e
+
+      - name: Guardar reporte y logs si falla
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-reporte
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            ${{ runner.temp }}/api.log
+            ${{ runner.temp }}/web.log
+
   imagenes:
     name: imagenes
     runs-on: ubuntu-latest

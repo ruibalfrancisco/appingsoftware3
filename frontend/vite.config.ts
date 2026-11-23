@@ -7,7 +7,8 @@ import { defineConfig } from 'vite'
 // Railway: el navegador ve un solo dominio.
 const proxyApi = {
   '/api': {
-    target: process.env.API_INTERNAL_URL ?? 'http://localhost:8000',
+    // 127.0.0.1 y no localhost: Node puede resolver localhost a ::1 y uvicorn escucha en IPv4.
+    target: process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:8000',
     changeOrigin: true,
     rewrite: (ruta: string) => ruta.replace(/^\/api/, ''),
   },

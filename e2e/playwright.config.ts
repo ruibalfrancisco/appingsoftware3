@@ -22,5 +22,11 @@ export default defineConfig({
       testDir: './tests/smoke',
       use: { ...devices['Pixel 7'] },
     },
+    {
+      // En cada PR, contra la app levantada en el CI (API + web + PostGIS + Mailpit).
+      name: 'e2e',
+      testDir: './tests/e2e',
+      use: { ...devices['Pixel 7'] },
+    },
   ],
 })
