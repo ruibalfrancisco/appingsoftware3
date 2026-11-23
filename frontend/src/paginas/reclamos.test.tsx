@@ -92,11 +92,13 @@ describe('Nuevo reclamo (CU-04)', () => {
     expect(await screen.findByText('Paso 3 de 5 · Ubicación')).toBeVisible()
     await userEvent.click(await screen.findByRole('button', { name: 'Confirmar ubicación' }))
 
-    await userEvent.type(await screen.findByLabelText('Título'), 'Bache en la esquina')
+    expect(screen.queryByLabelText(/Título/)).not.toBeInTheDocument()
+    await userEvent.type(await screen.findByLabelText('Descripción'), 'Ocupa medio carril')
     await userEvent.click(screen.getByRole('button', { name: 'Revisar' }))
 
     const resumen = await screen.findByRole('region', { name: 'Resumen del reclamo' })
-    expect(resumen).toHaveTextContent('Bache en la esquina')
+    expect(resumen).toHaveTextContent('Bache')
+    expect(resumen).toHaveTextContent('Ocupa medio carril')
     expect(resumen).toHaveTextContent('5 · Moderado')
     await userEvent.click(screen.getByRole('button', { name: 'Enviar reclamo' }))
 
@@ -106,15 +108,31 @@ describe('Nuevo reclamo (CU-04)', () => {
     const enviado = init?.body as FormData
     expect(
       Object.fromEntries(
-        ['tipo_id', 'titulo', 'gravedad', 'latitud'].map((k) => [k, enviado.get(k)]),
+        ['tipo_id', 'descripcion', 'gravedad', 'latitud'].map((k) => [k, enviado.get(k)]),
       ),
     ).toEqual({
       tipo_id: '1',
-      titulo: 'Bache en la esquina',
+      descripcion: 'Ocupa medio carril',
       gravedad: '5',
       latitud: '-31.29',
     })
     expect(enviado.get('foto')).toBeInstanceOf(Blob)
+    expect(enviado.has('titulo')).toBe(false)
+  })
+
+  it('RF-14 sin descripción no avanza al resumen', async () => {
+    simularGps(ADENTRO)
+    apiDeReclamos()
+    renderizarEn('/reclamos/nuevo')
+    await hastaLaUbicacion()
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirmar ubicación' }))
+
+    await userEvent.type(await screen.findByLabelText('Descripción'), '   ')
+    await userEvent.click(screen.getByRole('button', { name: 'Revisar' }))
+
+    expect(await screen.findByText(/Escribí qué pasa/)).toBeVisible()
+    expect(screen.getByLabelText('Descripción')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.queryByRole('region', { name: 'Resumen del reclamo' })).not.toBeInTheDocument()
   })
 
   it('UT-09 sin foto no avanza', async () => {
@@ -178,7 +196,7 @@ describe('Nuevo reclamo (CU-04)', () => {
     renderizarEn('/reclamos/nuevo')
     await hastaLaUbicacion()
     await userEvent.click(await screen.findByRole('button', { name: 'Confirmar ubicación' }))
-    await userEvent.type(await screen.findByLabelText('Título'), 'Otro bache')
+    await userEvent.type(await screen.findByLabelText('Descripción'), 'Otro bache')
     await userEvent.click(screen.getByRole('button', { name: 'Revisar' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Enviar reclamo' }))
 
@@ -206,7 +224,6 @@ describe('Detalle del reclamo', () => {
           id: 7,
           numero: 7,
           tipo: TIPOS[0],
-          titulo: 'Bache en la esquina',
           descripcion: 'Profundo',
           direccion: 'San Martín 100',
           latitud: -31.29,
@@ -223,7 +240,7 @@ describe('Detalle del reclamo', () => {
     })
     renderizarEn('/reclamos/7')
 
-    expect(await screen.findByRole('heading', { name: 'Bache en la esquina' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Bache' })).toBeVisible()
     expect(screen.getByText('Reclamo #7')).toBeVisible()
     expect(screen.getByText('Pendiente')).toBeVisible()
     expect(screen.getByText('8.0 · Grave')).toBeVisible()

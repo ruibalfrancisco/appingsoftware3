@@ -69,13 +69,15 @@ RustFS: http://localhost:9001 · Para apagar todo: `docker compose -f infra/dock
 | --- | --- |
 | Backend: lint, formato y tipos | `cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy` |
 | Backend: unitarias con cobertura | `cd backend && uv run python -m pytest -m "not integracion" --cov=app` |
-| Backend: integración (con docker-compose levantado) | `cd backend && $env:DATABASE_URL="postgresql://reclamos:reclamos@127.0.0.1:5432/reclamos"; uv run python -m pytest -m integracion` |
+| Backend: integración (con docker-compose levantado) | `cd backend && $env:DATABASE_URL="postgresql://reclamos:reclamos@127.0.0.1:5432/reclamos_pruebas"; uv run python -m pytest -m integracion` |
 | Frontend: lint, formato y tipos | `cd frontend && npm run lint && npm run format:check && npm run typecheck` |
 | Frontend: unitarias con cobertura | `cd frontend && npm run test:cov` |
 | E2E (con la API y `npm run dev` corriendo) | `cd e2e && npx playwright install chromium` (una vez) y `$env:WEB_URL="http://localhost:5173"; npx playwright test --project=e2e` |
 | Smoke contra un ambiente | `cd e2e && $env:WEB_URL="..."; $env:API_URL="..."; npm run smoke` |
 
-Las pruebas de integración borran los datos de la base local antes de cada prueba.
+Las pruebas de integración vacían la base antes de cada prueba: por eso usan `reclamos_pruebas`
+y no la base con la que probás la app. Se crea una sola vez con
+`docker compose -f infra/docker-compose.yml exec db createdb -U reclamos reclamos_pruebas`.
 
 Cada prueba lleva el ID del documento de requerimientos (UT-xx, IT-xx, E2E-xx) para trazar
 qué regla de negocio cubre.

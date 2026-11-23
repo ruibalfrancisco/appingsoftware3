@@ -3,7 +3,6 @@
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
-TITULO_MAX = 80
 DESCRIPCION_MAX = 500
 DIRECCION_MAX = 200
 

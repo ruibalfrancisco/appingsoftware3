@@ -23,7 +23,7 @@ const TITULOS: Record<Paso, string> = {
   Tipo: '¿Qué querés reportar?',
   Foto: 'Sacale una foto',
   Ubicación: '¿Dónde está?',
-  Detalles: 'Contanos un poco más',
+  Detalles: 'Contanos qué pasa',
   Resumen: 'Revisá y enviá',
 }
 
@@ -154,15 +154,9 @@ export default function NuevoReclamo() {
               <dd className="font-semibold">{tipo.nombre}</dd>
             </div>
             <div>
-              <dt className="text-[13px] text-texto-2">Título</dt>
-              <dd className="font-semibold">{detalles.titulo}</dd>
+              <dt className="text-[13px] text-texto-2">Descripción</dt>
+              <dd className="whitespace-pre-line">{detalles.descripcion}</dd>
             </div>
-            {detalles.descripcion && (
-              <div>
-                <dt className="text-[13px] text-texto-2">Descripción</dt>
-                <dd>{detalles.descripcion}</dd>
-              </div>
-            )}
             <div>
               <dt className="text-[13px] text-texto-2">Ubicación</dt>
               <dd>
