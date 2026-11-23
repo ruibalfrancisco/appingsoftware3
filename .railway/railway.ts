@@ -7,7 +7,7 @@
 // IMPORTANTE: al aplicar, Railway BORRA todo recurso del proyecto que no esté declarado acá.
 // No quitar PostGIS ni su volumen. Las variables no se manejan acá (variables.managed = false):
 // se cargan en Railway y no se borran.
-import { defineRailway, image, project, service, volume } from 'railway/iac'
+import { bucket, defineRailway, image, project, service, volume } from 'railway/iac'
 
 // Una sola región: el plan Hobby no admite multirregión. US East es la más cercana a Argentina.
 const SOLO_US_EAST = { 'us-east4-eqdc4a': 1 }
@@ -34,6 +34,11 @@ export default defineRailway(() => {
     volumeMounts: { '/var/lib/postgresql/data': postgisVolume },
   })
 
+  // Fotos de los reclamos (RN-10): privado, URLs firmadas. La región no se puede cambiar después.
+  // Cada ambiente tiene su propio bucket. La api recibe las credenciales por referencia
+  // (${{fotos.ENDPOINT}}, ${{fotos.BUCKET}}...), cargadas como variables en Railway.
+  const fotos = bucket('fotos', { region: 'iad' })
+
   // El código lo sube deploy.yml con `railway up backend --path-as-root`.
   const api = service('api', {
     build: DOCKERFILE,
@@ -56,6 +61,6 @@ export default defineRailway(() => {
 
   return project('reclamos-villa-allende', {
     variables: { managed: false },
-    resources: [web, PostGIS, api, postgisVolume],
+    resources: [web, PostGIS, api, postgisVolume, fotos],
   })
 })

@@ -61,3 +61,15 @@ def usuario_actual(
 
 
 UsuarioActual = Annotated[Usuario, Depends(usuario_actual)]
+
+
+def vecino_verificado(usuario: UsuarioActual) -> Usuario:
+    """RN-09: el email tiene que estar verificado antes de reclamar o apoyar."""
+    if usuario.email_verificado_en is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, detail="Confirmá tu email para poder cargar reclamos"
+        )
+    return usuario
+
+
+VecinoVerificado = Annotated[Usuario, Depends(vecino_verificado)]
