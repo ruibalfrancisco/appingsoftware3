@@ -7,10 +7,8 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Nunca dos despliegues a la vez; el que llega después espera su turno.
-concurrency:
-  group: deploy-main
-  cancel-in-progress: false
+# Nunca dos despliegues al mismo ambiente a la vez: cada ambiente tiene su propia fila (ver la
+# concurrency de cada job). Así, una aprobación de producción pendiente no traba staging.
 
 permissions:
   contents: read
@@ -29,6 +27,9 @@ jobs:
     if: vars.RAILWAY_PROJECT_ID != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
     environment:
       name: staging
       url: ${{ vars.WEB_URL }}
@@ -47,6 +48,11 @@ jobs:
     needs: staging
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Si hay una aprobación pendiente de una versión anterior, esta espera detrás. Conviene
+    # rechazar la vieja y aprobar la más nueva, que ya incluye todo.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     # Acá GitHub frena hasta que un revisor apruebe (Required reviewers del ambiente).
     environment:
       name: production
