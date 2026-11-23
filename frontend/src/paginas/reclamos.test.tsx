@@ -240,3 +240,24 @@ describe('Detalle del reclamo', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No existe ese reclamo')
   })
 })
+
+describe('Dirección del pin (RF-10)', () => {
+  it('aparece sobre el mapa y completa el campo del paso siguiente', async () => {
+    simularGps(ADENTRO)
+    apiDeReclamos({
+      'GET /direccion': () => ({
+        status: 200,
+        json: { direccion: 'Rivera Indarte 101, Villa Allende Centro' },
+      }),
+    })
+    renderizarEn('/reclamos/nuevo')
+    await hastaLaUbicacion()
+
+    expect(await screen.findByText('Rivera Indarte 101, Villa Allende Centro')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar ubicación' }))
+
+    expect(await screen.findByLabelText('Dirección o referencia (opcional)')).toHaveValue(
+      'Rivera Indarte 101, Villa Allende Centro',
+    )
+  })
+})

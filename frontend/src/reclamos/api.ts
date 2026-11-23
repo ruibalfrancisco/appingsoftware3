@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { API_BASE, ErrorDeApi, errorDesdeRespuesta, pedir, SIN_CONEXION } from '../api'
+import { useValorEstable } from '../hooks'
 
 export interface TipoReclamo {
   id: number
@@ -104,4 +105,26 @@ export async function crearReclamo(datos: NuevoReclamo): Promise<ReclamoCreado> 
   const cuerpo: unknown = await respuesta.json().catch(() => null)
   if (!respuesta.ok) throw errorDesdeRespuesta(respuesta.status, cuerpo)
   return cuerpo as ReclamoCreado
+}
+
+/**
+ * RF-10: dirección aproximada del pin, cuando el mapa queda quieto. La busca el backend en
+ * OpenStreetMap; si no la encuentra, el vecino la escribe a mano en el paso siguiente.
+ */
+export function useDireccion(posicion: Posicion | undefined, habilitada: boolean) {
+  const estable = useValorEstable(posicion, 700)
+  return useQuery({
+    queryKey: ['direccion', estable?.latitud.toFixed(4), estable?.longitud.toFixed(4)],
+    queryFn: async ({ signal }) => {
+      const { latitud, longitud } = estable!
+      const consulta = new URLSearchParams({ latitud: String(latitud), longitud: String(longitud) })
+      const { direccion } = await pedir<{ direccion: string | null }>(`/direccion?${consulta}`, {
+        signal,
+      })
+      return direccion
+    },
+    enabled: habilitada && estable !== undefined,
+    staleTime: Infinity,
+    retry: false,
+  })
 }

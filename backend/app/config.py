@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     smtp_port: int = 1025
     resend_api_key: str = ""
 
+    # RF-10: dirección del pin con Nominatim. En CI se apaga: los E2E no dependen de internet.
+    geocodificar: bool = True
+
     # Fotos: bucket S3 (RustFS en local y CI, Railway Bucket en la nube). Mismos nombres que las
     # variables que Railway inyecta desde el bucket.
     aws_endpoint_url: str = "http://127.0.0.1:9000"

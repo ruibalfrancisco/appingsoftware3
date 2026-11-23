@@ -2,17 +2,18 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp } from 'lucide-react'
 import { useState, type KeyboardEvent } from 'react'
 import type { Posicion } from '../api'
 import { desplazar } from '../geocerca'
+import BotonUbicarme from './BotonUbicarme'
 import type { PropsMapa } from './MapaSelector'
 import PinCentral from './PinCentral'
 
 const PASO_METROS = 25
 
 /**
- * Reemplazo de Google Maps cuando no hay key. Mismo contrato: el pin queda en el centro y se
+ * Reemplazo del mapa real en CI y en las pruebas (VITE_MAPA=simulado). Mismo contrato: el pin queda en el centro y se
  * "mueve el mapa" con los botones o con las flechas del teclado (RNF-06). Se remonta (key) cuando
  * cambia el centro pedido desde afuera, así arranca de nuevo desde ahí.
  */
-export default function MapaSimulado({ centro, onCambio, dentro }: PropsMapa) {
+export default function MapaSimulado({ centro, onCambio, dentro, onUbicarme }: PropsMapa) {
   const [posicion, setPosicion] = useState<Posicion>(centro)
 
   const mover = (norte: number, este: number) => {
@@ -48,6 +49,7 @@ export default function MapaSimulado({ centro, onCambio, dentro }: PropsMapa) {
         className="relative h-[45dvh] overflow-hidden rounded-hoja bg-[linear-gradient(#e2e8f0_1px,transparent_1px),linear-gradient(90deg,#e2e8f0_1px,transparent_1px)] bg-[size:32px_32px] ring-1 ring-slate-300 focus:ring-2 focus:ring-primario"
       >
         <PinCentral dentro={dentro} />
+        <BotonUbicarme onClick={onUbicarme} />
         <p className="absolute bottom-2 left-2 rounded bg-white/90 px-2 py-1 text-[13px] text-texto-2">
           Mapa simulado · {posicion.latitud.toFixed(5)}, {posicion.longitud.toFixed(5)}
         </p>

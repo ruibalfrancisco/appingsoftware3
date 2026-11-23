@@ -23,17 +23,18 @@ export default defineConfig({
   envDir: '..',
   test: {
     environment: 'jsdom',
+    env: { VITE_MAPA: 'simulado' },
     setupFiles: ['./src/test/setup.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
-      // MapaGoogle solo se carga con key de Google: se verifica en el smoke contra staging.
+      // MapaOSM (MapLibre) necesita WebGL, que jsdom no tiene: lo cubren las pruebas en staging.
       exclude: [
         'src/main.tsx',
         'src/test/**',
         'src/**/*.test.{ts,tsx}',
         'src/vite-env.d.ts',
-        'src/reclamos/mapa/MapaGoogle.tsx',
+        'src/reclamos/mapa/MapaOSM.tsx',
       ],
       // RNF-10: 70 % de cobertura en el frontend; por debajo, el CI falla.
       thresholds: { lines: 70, functions: 70, branches: 70, statements: 70 },

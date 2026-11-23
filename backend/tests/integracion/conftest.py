@@ -40,7 +40,7 @@ def url_base() -> str:
 
 @pytest.fixture(scope="session")
 def motor(url_base: str) -> Iterator[Engine]:
-    motor = create_engine(url_base)
+    motor = create_engine(url_base, connect_args={"connect_timeout": 10})
     yield motor
     motor.dispose()
 
