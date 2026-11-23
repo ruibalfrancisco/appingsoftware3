@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import { Link } from 'react-router'
 import { obtenerSalud } from '../api'
 import { CLAVE_SESION, cuentas, useSesion } from '../cuentas/api'
@@ -74,9 +75,9 @@ export default function Inicio() {
 
       {usuario && (
         <div className="flex flex-col gap-3">
-          <p className="rounded-tarjeta bg-superficie p-4 text-[15px] ring-1 ring-slate-200">
-            Muy pronto vas a poder cargar tu primer reclamo desde acá.
-          </p>
+          <Link to="/reclamos/nuevo" className={`${claseBoton} gap-2 bg-primario text-white`}>
+            <Plus aria-hidden className="size-5" strokeWidth={2.5} /> Nuevo reclamo
+          </Link>
           <button
             type="button"
             onClick={() => salida.mutate()}

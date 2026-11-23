@@ -1,17 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { enlaceDelEmail } from './mailpit'
-
-/** Un vecino distinto por prueba: los datos no chocan entre corridas (DNI y email únicos). */
-function vecinoNuevo() {
-  const sufijo = String(Math.floor(Math.random() * 10_000_000)).padStart(7, '0')
-  return {
-    dni: `4${sufijo}`,
-    nombre: 'Lucía',
-    apellido: 'Gómez',
-    email: `lucia.${sufijo}@ejemplo.com`,
-    password: 'clave-de-prueba-1',
-  }
-}
+import { vecinoNuevo } from './vecino'
 
 test('E2E-01 registro, verificación por email e ingreso (CU-01 a CU-03)', async ({
   page,
