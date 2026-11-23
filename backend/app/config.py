@@ -18,7 +18,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str = "postgresql://reclamos:reclamos@localhost:5432/reclamos"
+    database_url: str = "postgresql://reclamos:reclamos@127.0.0.1:5432/reclamos"
     # Lista separada por comas. En Railway la web hace de proxy de /api, así que casi no se usa.
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     # Railway la define sola en cada ambiente (staging, production).
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # Email: smtp (Mailpit) en local y CI, resend en Railway, memoria en las pruebas.
     email_backend: Literal["smtp", "resend", "memoria"] = "smtp"
     email_from: str = "Reclamos Villa Allende <no-responder@reclamos.local>"
-    smtp_host: str = "localhost"
+    smtp_host: str = "127.0.0.1"
     smtp_port: int = 1025
     resend_api_key: str = ""
 

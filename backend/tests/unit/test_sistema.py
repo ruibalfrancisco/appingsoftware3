@@ -45,33 +45,33 @@ def test_build_info_sin_archivo_usa_valores_de_desarrollo(tmp_path: Path) -> Non
 
 
 def test_convierte_la_url_de_railway_para_psycopg() -> None:
-    railway = Settings(database_url="postgresql://u:p@host:5432/db")
-    heroku = Settings(database_url="postgres://u:p@host:5432/db")
+    railway = Settings(_env_file=None, database_url="postgresql://u:p@host:5432/db")
+    heroku = Settings(_env_file=None, database_url="postgres://u:p@host:5432/db")
 
     assert railway.sqlalchemy_database_url == "postgresql+psycopg://u:p@host:5432/db"
     assert heroku.sqlalchemy_database_url == "postgresql+psycopg://u:p@host:5432/db"
 
 
 def test_lista_de_origenes_cors() -> None:
-    settings = Settings(cors_origins=" https://a.example ,https://b.example,, ")
+    settings = Settings(_env_file=None, cors_origins=" https://a.example ,https://b.example,, ")
 
     assert settings.lista_cors_origins == ["https://a.example", "https://b.example"]
 
 
 def test_en_railway_la_api_no_arranca_sin_jwt_secret() -> None:
     with pytest.raises(ValidationError, match="JWT_SECRET"):
-        Settings(railway_environment_name="production")
+        Settings(_env_file=None, railway_environment_name="production")
     with pytest.raises(ValidationError, match="32 caracteres"):
-        Settings(railway_environment_name="staging", jwt_secret="corto")
+        Settings(_env_file=None, railway_environment_name="staging", jwt_secret="corto")
 
 
 def test_en_railway_la_cookie_es_segura_y_en_local_no() -> None:
-    railway = Settings(railway_environment_name="staging", jwt_secret="x" * 64)
+    railway = Settings(_env_file=None, railway_environment_name="staging", jwt_secret="x" * 64)
 
     assert railway.cookie_segura
-    assert not Settings().cookie_segura
+    assert not Settings(_env_file=None).cookie_segura
 
 
 def test_resend_necesita_api_key() -> None:
     with pytest.raises(ValidationError, match="RESEND_API_KEY"):
-        Settings(email_backend="resend")
+        Settings(_env_file=None, email_backend="resend")
