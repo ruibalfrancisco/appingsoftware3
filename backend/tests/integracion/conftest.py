@@ -9,10 +9,14 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from alembic import command
 from alembic.config import Config
-from sqlalchemy import Engine, create_engine
+from fastapi.testclient import TestClient
+from sqlalchemy import Engine, create_engine, text
 
 from app.config import Settings
+from app.correo import EnviadorEnMemoria, obtener_enviador
+from app.main import app
 
 RAIZ_BACKEND = Path(__file__).resolve().parents[2]
 
@@ -45,3 +49,25 @@ def config_alembic(url_base: str) -> Config:
     config.set_main_option("script_location", str(RAIZ_BACKEND / "alembic"))
     config.set_main_option("sqlalchemy.url", url_base.replace("%", "%%"))
     return config
+
+
+@pytest.fixture
+def base_limpia(config_alembic: Config, motor: Engine) -> Engine:
+    """Esquema al día y tablas vacías: cada prueba crea sus propios datos."""
+    command.upgrade(config_alembic, "head")
+    with motor.begin() as conexion:
+        conexion.execute(text("TRUNCATE usuario, token RESTART IDENTITY CASCADE"))
+    return motor
+
+
+@pytest.fixture
+def correos() -> EnviadorEnMemoria:
+    return EnviadorEnMemoria()
+
+
+@pytest.fixture
+def cliente(base_limpia: Engine, correos: EnviadorEnMemoria) -> Iterator[TestClient]:
+    app.dependency_overrides[obtener_enviador] = lambda: correos
+    with TestClient(app) as cliente:
+        yield cliente
+    app.dependency_overrides.clear()

@@ -43,3 +43,9 @@ def test_postgis_calcula_distancias_en_metros(config_alembic: Config, motor: Eng
     with motor.connect() as conexion:
         distancia = conexion.execute(consulta).scalar_one()
     assert 105 < distancia < 115
+
+
+def test_los_modelos_coinciden_con_las_migraciones(config_alembic: Config) -> None:
+    """Si alguien cambia un modelo y se olvida la migración, esto falla."""
+    command.upgrade(config_alembic, "head")
+    command.check(config_alembic)

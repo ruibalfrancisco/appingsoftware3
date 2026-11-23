@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.build_info import obtener_build_info
 from app.config import Settings
@@ -54,3 +56,22 @@ def test_lista_de_origenes_cors() -> None:
     settings = Settings(cors_origins=" https://a.example ,https://b.example,, ")
 
     assert settings.lista_cors_origins == ["https://a.example", "https://b.example"]
+
+
+def test_en_railway_la_api_no_arranca_sin_jwt_secret() -> None:
+    with pytest.raises(ValidationError, match="JWT_SECRET"):
+        Settings(railway_environment_name="production")
+    with pytest.raises(ValidationError, match="32 caracteres"):
+        Settings(railway_environment_name="staging", jwt_secret="corto")
+
+
+def test_en_railway_la_cookie_es_segura_y_en_local_no() -> None:
+    railway = Settings(railway_environment_name="staging", jwt_secret="x" * 64)
+
+    assert railway.cookie_segura
+    assert not Settings().cookie_segura
+
+
+def test_resend_necesita_api_key() -> None:
+    with pytest.raises(ValidationError, match="RESEND_API_KEY"):
+        Settings(email_backend="resend")
