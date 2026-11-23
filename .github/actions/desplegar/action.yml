@@ -42,6 +42,11 @@ runs:
         npm ci --prefix .railway --no-audit --no-fund
         railway config apply --environment "${{ inputs.ambiente }}" --yes
 
+    # El bucket lo crea el paso anterior; acá la api recibe sus credenciales por referencia.
+    - name: Conectar el bucket de fotos a la api
+      shell: bash
+      run: bash .github/scripts/conectar-bucket.sh "${{ inputs.ambiente }}"
+
     - name: Anotar versión y commit para /health
       shell: bash
       run: |
