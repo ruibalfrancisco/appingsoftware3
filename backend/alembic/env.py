@@ -20,12 +20,15 @@ if config.config_file_name is not None:
 # MetaData de los modelos: permite --autogenerate y `alembic check` (modelos = migraciones).
 target_metadata = Base.metadata
 
-# Tablas que crea la extensión PostGIS en el esquema public: no son nuestras.
-TABLAS_AJENAS = {"spatial_ref_sys"}
-
 
 def incluir_nombre(nombre: str | None, tipo: str, _padres: object) -> bool:
-    return not (tipo == "table" and nombre in TABLAS_AJENAS)
+    """Solo se comparan las tablas de nuestros modelos.
+
+    PostGIS y su geocodificador TIGER crean decenas de tablas propias (spatial_ref_sys, state,
+    county...) que Alembic no debe proponer borrar. Contra: quitar un modelo no genera
+    automáticamente el DROP TABLE; esa migración se escribe a mano (expandir y contraer).
+    """
+    return tipo != "table" or nombre in target_metadata.tables
 
 
 def url_de_la_base() -> str:
