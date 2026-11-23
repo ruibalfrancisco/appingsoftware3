@@ -41,7 +41,7 @@ def test_el_email_de_recuperacion_escapa_el_html() -> None:
     [("smtp", EnviadorSmtp), ("memoria", EnviadorEnMemoria), ("resend", EnviadorResend)],
 )
 def test_email_backend_elige_la_implementacion(backend: str, clase: type) -> None:
-    settings = Settings(email_backend=backend, resend_api_key="re_prueba")  # type: ignore[arg-type]
+    settings = Settings(_env_file=None, email_backend=backend, resend_api_key="re_prueba")  # type: ignore[arg-type]
 
     assert isinstance(crear_enviador(settings), clase)
 

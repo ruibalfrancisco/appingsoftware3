@@ -11,7 +11,12 @@ from app.config import obtener_settings
 
 @lru_cache
 def obtener_motor() -> Engine:
-    return create_engine(obtener_settings().sqlalchemy_database_url, pool_pre_ping=True)
+    return create_engine(
+        obtener_settings().sqlalchemy_database_url,
+        pool_pre_ping=True,
+        # Si la base no responde, error claro a los 10 s en vez de quedar esperando para siempre.
+        connect_args={"connect_timeout": 10},
+    )
 
 
 @lru_cache

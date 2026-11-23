@@ -33,26 +33,35 @@ main ──► deploy.yml: ci ──► staging (Railway) + smoke ──► apro
 
 ## Desarrollo local
 
-Requisitos: Git, Docker Desktop, Node.js 26 LTS y [uv](https://docs.astral.sh/uv/) (uv instala
-Python 3.12 solo).
+Requisitos: Git, Docker Desktop (con WSL 2 en Windows), Node.js 26 LTS y
+[uv](https://docs.astral.sh/uv/) (uv instala Python 3.12 solo).
 
-```bash
-cp .env.example .env
-docker compose -f infra/docker-compose.yml up -d   # PostGIS, RustFS y Mailpit
+Una sola vez: copiá `.env.example` a `.env` y completá `JWT_SECRET` con cualquier texto largo
+(por ejemplo, el resultado de `openssl rand -hex 32`).
 
-# API en http://localhost:8000 (docs en /docs)
+Cada vez que vas a trabajar (PowerShell, desde la raíz del repo):
+
+```powershell
+# 1. Servicios de apoyo: PostGIS, RustFS (S3) y Mailpit. Docker Desktop tiene que estar abierto.
+docker compose -f infra/docker-compose.yml up -d
+
+# 2. API en http://localhost:8000 (documentación interactiva en /docs)
 cd backend
 uv sync
 uv run alembic upgrade head
-uv run uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload --host 127.0.0.1
 
-# Web en http://localhost:5173 (en otra terminal)
+# 3. Web en http://localhost:5173 (en otra terminal). Reenvía /api a la API.
 cd frontend
 npm ci
 npm run dev
 ```
 
-Bandeja de Mailpit: http://localhost:8025 · Consola de RustFS: http://localhost:9001
+Bandeja de Mailpit (los emails de la app llegan acá): http://localhost:8025 · Consola de
+RustFS: http://localhost:9001 · Para apagar todo: `docker compose -f infra/docker-compose.yml down`.
+
+> **Windows:** el backend se conecta a `127.0.0.1` y no a `localhost`. Con `localhost`, Windows
+> prueba primero IPv6 y cada conexión a Docker puede tardar varios segundos o quedar colgada.
 
 ## Pruebas
 
@@ -60,10 +69,13 @@ Bandeja de Mailpit: http://localhost:8025 · Consola de RustFS: http://localhost
 | --- | --- |
 | Backend: lint, formato y tipos | `cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy` |
 | Backend: unitarias con cobertura | `cd backend && uv run python -m pytest -m "not integracion" --cov=app` |
-| Backend: integración (necesita la base de docker-compose) | `cd backend && uv run python -m pytest -m integracion` |
+| Backend: integración (con docker-compose levantado) | `cd backend && $env:DATABASE_URL="postgresql://reclamos:reclamos@127.0.0.1:5432/reclamos"; uv run python -m pytest -m integracion` |
 | Frontend: lint, formato y tipos | `cd frontend && npm run lint && npm run format:check && npm run typecheck` |
 | Frontend: unitarias con cobertura | `cd frontend && npm run test:cov` |
-| Smoke contra un ambiente | `cd e2e && WEB_URL=... API_URL=... npm run smoke` |
+| E2E (con la API y `npm run dev` corriendo) | `cd e2e && npx playwright install chromium` (una vez) y `$env:WEB_URL="http://localhost:5173"; npx playwright test --project=e2e` |
+| Smoke contra un ambiente | `cd e2e && $env:WEB_URL="..."; $env:API_URL="..."; npm run smoke` |
+
+Las pruebas de integración borran los datos de la base local antes de cada prueba.
 
 Cada prueba lleva el ID del documento de requerimientos (UT-xx, IT-xx, E2E-xx) para trazar
 qué regla de negocio cubre.
