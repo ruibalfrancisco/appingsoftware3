@@ -293,6 +293,11 @@ jobs:
               curl -fsS -D - -o /dev/null http://localhost:8080/ | tee headers.txt
               grep -qi '^x-content-type-options: nosniff' headers.txt
               grep -qi '^x-frame-options: deny' headers.txt
+              # El worker del mapa (.mjs) tiene que salir como JavaScript: con nosniff, si no,
+              # el navegador no lo ejecuta y el mapa queda sin calles.
+              worker=$(docker exec web sh -c 'ls /usr/share/nginx/html/assets/*.mjs' | head -1 | xargs basename)
+              curl -fsS -D - -o /dev/null "http://localhost:8080/assets/$worker" | tee worker.txt
+              grep -qi '^content-type: application/javascript' worker.txt
               exit 0
             fi
             sleep 1
