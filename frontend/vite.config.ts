@@ -17,7 +17,8 @@ const proxyApi = {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  server: { proxy: proxyApi },
+  // Sin vigilar coverage/: si no, correr la cobertura recarga las páginas abiertas (y los E2E).
+  server: { proxy: proxyApi, watch: { ignored: ['**/coverage/**'] } },
   preview: { proxy: proxyApi },
   // Un solo .env en la raíz del monorepo; Vite solo expone las variables VITE_*.
   envDir: '..',

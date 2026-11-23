@@ -92,6 +92,43 @@ export function useReclamo(id: number) {
   })
 }
 
+/** Un reclamo parecido al que se está cargando (RN-01). */
+export interface ReclamoSimilar {
+  id: number
+  numero: number
+  tipo: TipoReclamo
+  descripcion: string
+  direccion: string | null
+  distancia_m: number
+  estado: string
+  cantidad_apoyos: number
+  foto_url: string | null
+  es_propio: boolean
+  ya_apoyado: boolean
+}
+
+export interface ApoyoRegistrado {
+  numero: number
+  cantidad_apoyos: number
+  gravedad_promedio: number
+  prioridad: number
+}
+
+/** RN-01: abiertos del mismo tipo a 50 m o menos, del más cercano al más lejano. */
+export function buscarSimilares(tipoId: number, posicion: Posicion) {
+  const consulta = new URLSearchParams({
+    tipo_id: String(tipoId),
+    latitud: String(posicion.latitud),
+    longitud: String(posicion.longitud),
+  })
+  return pedir<ReclamoSimilar[]>(`/reclamos/similares?${consulta}`)
+}
+
+/** CU-05 "Yo también lo vi". */
+export function apoyarReclamo(id: number, gravedad: number) {
+  return pedir<ApoyoRegistrado>(`/reclamos/${id}/apoyos`, { metodo: 'POST', cuerpo: { gravedad } })
+}
+
 export const CLAVE_MIS_RECLAMOS = ['reclamos', 'mios'] as const
 
 /** Los reclamos que cargó el vecino, del más nuevo al más viejo. */

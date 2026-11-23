@@ -7,6 +7,7 @@ A igual prioridad, va primero el reclamo más antiguo.
 
 import math
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
@@ -22,6 +23,24 @@ def calcular_prioridad(gravedades: Sequence[int]) -> float:
     cantidad = len(gravedades)
     promedio = sum(gravedades) / cantidad
     return promedio * (1 + math.log2(cantidad))
+
+
+@dataclass(frozen=True)
+class ResumenDeApoyos:
+    """Lo que se guarda en el reclamo para ordenar rápido (se recalcula en cada apoyo)."""
+
+    cantidad: int
+    gravedad_promedio: float
+    prioridad: float
+
+
+def resumir_apoyos(gravedades: Sequence[int]) -> ResumenDeApoyos:
+    prioridad = calcular_prioridad(gravedades)  # valida que haya al menos uno y cada gravedad
+    return ResumenDeApoyos(
+        cantidad=len(gravedades),
+        gravedad_promedio=sum(gravedades) / len(gravedades),
+        prioridad=prioridad,
+    )
 
 
 class Priorizable(Protocol):

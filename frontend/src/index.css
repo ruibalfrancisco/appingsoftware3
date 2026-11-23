@@ -24,6 +24,41 @@
 
   --radius-tarjeta: 12px;
   --radius-hoja: 16px;
+
+  /* Guía visual: solo transform y opacity; nada pasa de 400 ms. Se usan con motion-safe:. */
+  --animate-aparecer: aparecer 200ms ease-out both;
+  --animate-hoja: hoja-sube 350ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  --animate-tarjeta: tarjeta-entra 300ms ease-out both;
+  --animate-rodar: rodar 400ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-pulso: pulso 400ms ease-out;
+
+  @keyframes aparecer {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes hoja-sube {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes tarjeta-entra {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
+  @keyframes rodar {
+    from {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+  }
+  @keyframes pulso {
+    50% {
+      transform: scale(1.12);
+    }
+  }
 }
 
 body {

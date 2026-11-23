@@ -114,6 +114,33 @@ class ReclamoResumen(BaseModel):
     foto_url: str | None
 
 
+class ReclamoSimilar(BaseModel):
+    """Un reclamo parecido al que se está por cargar (RN-01), para ofrecer apoyarlo."""
+
+    id: int
+    numero: int
+    tipo: TipoPublico
+    descripcion: str
+    direccion: str | None
+    distancia_m: int
+    estado: str
+    cantidad_apoyos: int
+    foto_url: str | None
+    es_propio: bool
+    ya_apoyado: bool
+
+
+class NuevoApoyo(BaseModel):
+    gravedad: Annotated[int, AfterValidator(validar_gravedad)]  # RN-03
+
+
+class ApoyoRegistrado(BaseModel):
+    numero: int
+    cantidad_apoyos: int
+    gravedad_promedio: float
+    prioridad: float
+
+
 class ReclamoDetalle(BaseModel):
     """Lo que cualquier vecino puede ver de un reclamo: nunca DNI ni email (RNF-08)."""
 
