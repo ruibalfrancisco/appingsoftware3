@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app.build_info import obtener_build_info
 from app.config import obtener_settings
-from app.rutas import apoyos, cuentas, reclamos
+from app.rutas import apoyos, cuentas, gestion, reclamos
 
 settings = obtener_settings()
 build_info = obtener_build_info()
@@ -16,6 +16,7 @@ app.include_router(cuentas.router)
 # apoyos va antes que reclamos: /reclamos/similares no tiene que caer en /reclamos/{id}.
 app.include_router(apoyos.router)
 app.include_router(reclamos.router)
+app.include_router(gestion.router)
 
 app.add_middleware(
     CORSMiddleware,

@@ -114,6 +114,8 @@ class Reclamo(Base):
         Index("ix_reclamo_ubicacion", "ubicacion", postgresql_using="gist"),
         # RN-08: contar los reclamos del vecino en el día.
         Index("ix_reclamo_usuario_creado", "usuario_id", "creado_en"),
+        # Tablero (CU-07): filtrar por estado y ordenar por prioridad y antigüedad.
+        Index("ix_reclamo_estado_prioridad", "estado", "prioridad", "creado_en"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -181,4 +183,23 @@ class HistorialEstado(Base):
     estado_nuevo: Mapped[str] = mapped_column(String(12))
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"))
     comentario: Mapped[str | None] = mapped_column(String(500))
+    creado_en: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class Notificacion(Base):
+    """RN-07: una novedad por cada cambio de estado, para el creador y cada vecino que apoyó."""
+
+    __tablename__ = "notificacion"
+    __table_args__ = (
+        CheckConstraint("tipo IN ('cambio_estado')", name="tipo_valido"),
+        # Novedades sin leer de un vecino (contador de RF-20).
+        Index("ix_notificacion_usuario_leida", "usuario_id", "leida_en"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id", ondelete="CASCADE"))
+    reclamo_id: Mapped[int] = mapped_column(ForeignKey("reclamo.id", ondelete="CASCADE"))
+    historial_id: Mapped[int] = mapped_column(ForeignKey("historial_estado.id", ondelete="CASCADE"))
+    tipo: Mapped[str] = mapped_column(String(20), server_default="cambio_estado")
+    leida_en: Mapped[datetime | None]
     creado_en: Mapped[datetime] = mapped_column(server_default=func.now())

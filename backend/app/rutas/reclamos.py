@@ -22,6 +22,7 @@ from app.dominio.reclamos import (
     puede_crear_otro,
 )
 from app.esquemas import (
+    EntradaDeHistorial,
     FotoPublica,
     NuevoReclamo,
     ReclamoCreado,
@@ -31,7 +32,7 @@ from app.esquemas import (
 )
 from app.fotos import MAX_BYTES, FotoInvalidaError, procesar_foto
 from app.geocodificacion import direccion_de
-from app.modelos import Apoyo, Foto, HistorialEstado, Reclamo, TipoReclamo
+from app.modelos import Apoyo, Area, Foto, HistorialEstado, Reclamo, TipoReclamo
 from app.seguridad import ahora
 from app.sesion import DbDep, SettingsDep, UsuarioActual, VecinoVerificado
 
@@ -66,6 +67,15 @@ def fotos_de_reporte(db: Session, reclamo_ids: list[int]) -> dict[int, Foto]:
         .order_by(Foto.id.desc())  # si hubiera más de una, queda la primera
     )
     return {foto.reclamo_id: foto for foto in fotos}
+
+
+def a_entrada_de_historial(entrada: HistorialEstado) -> EntradaDeHistorial:
+    return EntradaDeHistorial(
+        estado_anterior=entrada.estado_anterior,
+        estado_nuevo=entrada.estado_nuevo,
+        comentario=entrada.comentario,
+        creado_en=entrada.creado_en,
+    )
 
 
 @router.get("/tipos")
@@ -243,6 +253,12 @@ def ver_reclamo(
     tipo = db.get(TipoReclamo, reclamo.tipo_id)
     assert tipo is not None  # FK obligatoria  # noqa: S101
     fotos = db.scalars(select(Foto).where(Foto.reclamo_id == reclamo.id).order_by(Foto.id))
+    historial = db.scalars(
+        select(HistorialEstado)
+        .where(HistorialEstado.reclamo_id == reclamo.id)
+        .order_by(HistorialEstado.creado_en, HistorialEstado.id)
+    )
+    area = db.get(Area, reclamo.area_id) if reclamo.area_id is not None else None
     latitud, longitud = coordenadas(reclamo)
     return ReclamoDetalle(
         id=reclamo.id,
@@ -266,5 +282,7 @@ def ver_reclamo(
             )
             for foto in fotos
         ],
+        area=area.nombre if area else None,
+        historial=[a_entrada_de_historial(entrada) for entrada in historial],
         es_propio=reclamo.usuario_id == usuario.id,
     )

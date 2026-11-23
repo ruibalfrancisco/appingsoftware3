@@ -63,6 +63,23 @@ RustFS: http://localhost:9001 · Para apagar todo: `docker compose -f infra/dock
 > **Windows:** el backend se conecta a `127.0.0.1` y no a `localhost`. Con `localhost`, Windows
 > prueba primero IPv6 y cada conexión a Docker puede tardar varios segundos o quedar colgada.
 
+## Personal municipal
+
+Los operadores y administradores no se registran desde la app: se dan de alta con un script
+(CU-10; el plan recorta la pantalla de usuarios municipales). Desde `backend/`:
+
+```powershell
+# Local: con CLAVE_INICIAL queda con esa contraseña.
+$env:CLAVE_INICIAL="clave-de-prueba-1"
+uv run python -m app.municipales --dni 20111222 --nombre Ana --apellido Pérez --email ana@villaallende.gob.ar --rol operador
+
+# Sin CLAVE_INICIAL imprime un enlace de un solo uso (72 h) para que la persona elija su contraseña.
+# --desactivar le corta el acceso y cierra sus sesiones.
+uv run python -m app.municipales --dni 20111222 --desactivar
+```
+
+Al ingresar, el personal municipal va al Tablero; un vecino que intente usar `/gestion` recibe 403.
+
 ## Pruebas
 
 | Qué | Comando |
