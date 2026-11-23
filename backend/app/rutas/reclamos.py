@@ -9,11 +9,12 @@ from geoalchemy2.elements import WKTElement
 from geoalchemy2.shape import to_shape
 from shapely.geometry import Point
 from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.almacenamiento import AlmacenDeFotos, obtener_almacen
 from app.dominio.estados import EstadoReclamo
 from app.dominio.geocerca import centro_del_ejido, dentro_del_ejido, geojson_del_ejido
-from app.dominio.prioridad import calcular_prioridad
+from app.dominio.prioridad import resumir_apoyos
 from app.dominio.reclamos import (
     DIRECCION_MAX,
     ZONA_HORARIA,
@@ -53,6 +54,18 @@ def coordenadas(reclamo: Reclamo) -> tuple[float, float]:
     if not isinstance(punto, Point):  # la columna es geography(POINT)
         raise TypeError("La ubicación del reclamo no es un punto")
     return punto.y, punto.x
+
+
+def fotos_de_reporte(db: Session, reclamo_ids: list[int]) -> dict[int, Foto]:
+    """La foto del reporte de cada reclamo, en una sola consulta (no una por reclamo)."""
+    if not reclamo_ids:
+        return {}
+    fotos = db.scalars(
+        select(Foto)
+        .where(Foto.reclamo_id.in_(reclamo_ids), Foto.tipo == "reporte")
+        .order_by(Foto.id.desc())  # si hubiera más de una, queda la primera
+    )
+    return {foto.reclamo_id: foto for foto in fotos}
 
 
 @router.get("/tipos")
@@ -134,6 +147,7 @@ def crear_reclamo(
     clave = f"reclamos/{mes}/{uuid.uuid4()}.jpg"
     almacen.guardar(clave, procesada.contenido, procesada.tipo_mime)
 
+    inicial = resumir_apoyos([datos.gravedad])  # RN-04 con el creador solo
     try:
         reclamo = Reclamo(
             usuario_id=usuario.id,
@@ -142,9 +156,9 @@ def crear_reclamo(
             direccion=direccion,
             ubicacion=WKTElement(f"POINT({datos.longitud} {datos.latitud})", srid=4326),
             estado=EstadoReclamo.PENDIENTE,
-            cantidad_apoyos=1,
-            gravedad_promedio=float(datos.gravedad),
-            prioridad=calcular_prioridad([datos.gravedad]),  # RN-04 con el creador solo
+            cantidad_apoyos=inicial.cantidad,
+            gravedad_promedio=inicial.gravedad_promedio,
+            prioridad=inicial.prioridad,
         )
         db.add(reclamo)
         db.flush()
@@ -196,16 +210,7 @@ def mis_reclamos(usuario: UsuarioActual, db: DbDep, almacen: AlmacenDep) -> list
         .where(Reclamo.usuario_id == usuario.id)
         .order_by(Reclamo.creado_en.desc(), Reclamo.id.desc())
     ).all()
-    # Una sola consulta para todas las fotos, no una por reclamo.
-    fotos = {
-        foto.reclamo_id: foto
-        for foto in db.scalars(
-            select(Foto)
-            .where(Foto.reclamo_id.in_([reclamo.id for reclamo, _ in filas]))
-            .where(Foto.tipo == "reporte")
-            .order_by(Foto.id.desc())  # si hubiera más de una, queda la primera
-        )
-    }
+    fotos = fotos_de_reporte(db, [reclamo.id for reclamo, _ in filas])
     resumenes = []
     for reclamo, tipo in filas:
         latitud, longitud = coordenadas(reclamo)

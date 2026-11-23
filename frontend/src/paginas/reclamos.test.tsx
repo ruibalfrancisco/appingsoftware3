@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANA, renderizarEn, simularApi } from '../test/utilidades'
@@ -41,6 +41,8 @@ function apiDeReclamos(extra = {}) {
         centro: { latitud: -31.29, longitud: -64.29 },
       },
     }),
+    // Por defecto no hay reclamos parecidos (RN-01).
+    'GET /reclamos/similares': () => ({ status: 200, json: [] }),
     ...extra,
   })
 }
@@ -384,5 +386,150 @@ describe('Mis reclamos', () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/ingresar'))
     expect(await screen.findByText('Ingresá para ver tus reclamos.')).toBeVisible()
+  })
+})
+
+describe('Similares y "Yo también lo vi" (CU-05)', () => {
+  const SIMILARES = [
+    {
+      id: 12,
+      numero: 12,
+      tipo: TIPOS[0],
+      descripcion: 'Bache enorme en la esquina',
+      direccion: 'San Martín 100',
+      distancia_m: 8,
+      estado: 'PENDIENTE',
+      cantidad_apoyos: 2,
+      foto_url: 'https://fotos.example/s.jpg',
+      es_propio: false,
+      ya_apoyado: false,
+    },
+    {
+      id: 15,
+      numero: 15,
+      tipo: TIPOS[0],
+      descripcion: 'El que cargué ayer',
+      direccion: null,
+      distancia_m: 0,
+      estado: 'EN_REVISION',
+      cantidad_apoyos: 1,
+      foto_url: null,
+      es_propio: true,
+      ya_apoyado: false,
+    },
+    {
+      id: 16,
+      numero: 16,
+      tipo: TIPOS[0],
+      descripcion: 'Otro bache',
+      direccion: null,
+      distancia_m: 40,
+      estado: 'PENDIENTE',
+      cantidad_apoyos: 4,
+      foto_url: null,
+      es_propio: false,
+      ya_apoyado: true,
+    },
+  ]
+
+  async function hastaLaHoja(extra = {}) {
+    simularGps(ADENTRO)
+    const api = apiDeReclamos({
+      'GET /reclamos/similares': () => ({ status: 200, json: SIMILARES }),
+      ...extra,
+    })
+    renderizarEn('/reclamos/nuevo')
+    await hastaLaUbicacion()
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirmar ubicación' }))
+    const hoja = await screen.findByRole('dialog', { name: '¿Es alguno de estos?' })
+    return { api, hoja }
+  }
+
+  it('RN-01: al confirmar la ubicación muestra los parecidos y se apoya uno con su gravedad', async () => {
+    const { api, hoja } = await hastaLaHoja({
+      'POST /reclamos/12/apoyos': () => ({
+        status: 201,
+        json: { numero: 12, cantidad_apoyos: 3, gravedad_promedio: 7, prioridad: 18.1 },
+      }),
+    })
+
+    const [busqueda] = api.mock.calls.find(([url]) => url.startsWith('/api/reclamos/similares'))!
+    expect(busqueda).toContain('tipo_id=1')
+    expect(busqueda).toContain('latitud=-31.29')
+    expect(hoja).toHaveTextContent('Ya hay 3 reclamos del mismo tipo a menos de 50 m')
+    const [cercano, propio, apoyado] = within(hoja).getAllByRole('article')
+    expect(cercano).toHaveTextContent('Bache enorme en la esquina')
+    expect(cercano).toHaveTextContent('A 8 m · San Martín 100')
+    expect(cercano).toHaveTextContent('2 apoyos')
+    expect(propio).toHaveTextContent('En el mismo lugar')
+    expect(propio).toHaveTextContent('Es tuyo')
+    expect(within(propio).queryByRole('button')).not.toBeInTheDocument()
+    expect(apoyado).toHaveTextContent('Ya lo apoyaste')
+
+    await userEvent.click(within(cercano).getByRole('button', { name: 'Yo también lo vi' }))
+    fireEvent.change(within(cercano).getByRole('slider'), { target: { value: '9' } })
+    expect(cercano).toHaveTextContent('9 · Urgente')
+    await userEvent.click(within(cercano).getByRole('button', { name: 'Sumar mi apoyo' }))
+
+    expect(
+      await screen.findByRole('heading', { name: '¡Gracias por sumar tu apoyo!' }),
+    ).toBeVisible()
+    expect(screen.getByRole('main')).toHaveTextContent('3 apoyos')
+    expect(screen.getByText('en el reclamo #12')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Ver el reclamo' })).toHaveAttribute(
+      'href',
+      '/reclamos/12',
+    )
+    const [, init] = api.mock.calls.find(([url]) => url === '/api/reclamos/12/apoyos')!
+    expect(JSON.parse(init?.body as string)).toEqual({ gravedad: 9 })
+    // CU-05: se apoya el existente; no se crea un reclamo nuevo ni se sube la foto.
+    expect(api.mock.calls.some(([url]) => url === '/api/reclamos')).toBe(false)
+  })
+
+  it('RF-13: "No es ninguno" sigue con un reclamo nuevo', async () => {
+    await hastaLaHoja()
+
+    await userEvent.click(screen.getByRole('button', { name: /No es ninguno/ }))
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await screen.findByLabelText('Descripción')).toBeVisible()
+    expect(screen.getByText('Paso 4 de 5 · Detalles')).toBeVisible()
+  })
+
+  it('Escape cierra la hoja y vuelve al mapa para corregir el pin', async () => {
+    await hastaLaHoja()
+
+    await userEvent.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByText('Paso 3 de 5 · Ubicación')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Confirmar ubicación' })).toBeEnabled()
+  })
+
+  it('CU-05 4a: si el apoyo no se puede sumar, lo explica en la tarjeta', async () => {
+    const { hoja } = await hastaLaHoja({
+      'POST /reclamos/12/apoyos': () => ({
+        status: 409,
+        json: { detail: 'Ya apoyaste este reclamo' },
+      }),
+    })
+    const [cercano] = within(hoja).getAllByRole('article')
+
+    await userEvent.click(within(cercano).getByRole('button', { name: 'Yo también lo vi' }))
+    await userEvent.click(within(cercano).getByRole('button', { name: 'Sumar mi apoyo' }))
+
+    expect(await within(cercano).findByRole('alert')).toHaveTextContent('Ya apoyaste este reclamo')
+    expect(screen.getByRole('dialog')).toBeVisible()
+  })
+
+  it('si la búsqueda de parecidos falla, la carga sigue igual', async () => {
+    simularGps(ADENTRO)
+    apiDeReclamos({ 'GET /reclamos/similares': () => ({ status: 500, json: {} }) })
+    renderizarEn('/reclamos/nuevo')
+    await hastaLaUbicacion()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirmar ubicación' }))
+
+    expect(await screen.findByLabelText('Descripción')).toBeVisible()
   })
 })

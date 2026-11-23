@@ -1,16 +1,16 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera, Images, MapPin, RotateCcw } from 'lucide-react'
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { Alerta, BotonPrincipal, Campo } from '../componentes/ui'
-import { etiquetaGravedad } from '../dominio/gravedad'
 import type { Posicion, TipoReclamo } from './api'
 import { useDireccion, useEjido, useTipos } from './api'
-import { colorGravedad, esquemaDetalles, type Detalles } from './detalles'
+import { esquemaDetalles, type Detalles } from './detalles'
 import { dentroDelEjido } from './geocerca'
 import IconoTipo from './IconoTipo'
 import { reducirFoto, validarArchivo } from './imagen'
 import MapaSelector from './mapa/MapaSelector'
+import SelectorGravedad from './SelectorGravedad'
 
 /* ---------- Paso 1: tipo (RF-06) ---------- */
 
@@ -149,8 +149,11 @@ function pedirUbicacion(): Promise<Posicion> {
 
 export function PasoUbicacion({
   onConfirmar,
+  buscando = false,
 }: {
   onConfirmar: (posicion: Posicion, direccion: string | null) => void
+  /** Mientras se buscan reclamos parecidos (RN-01) después de confirmar. */
+  buscando?: boolean
 }) {
   const ejido = useEjido()
   const [centro, setCentro] = useState<Posicion>()
@@ -224,6 +227,7 @@ export function PasoUbicacion({
       <BotonPrincipal
         type="button"
         disabled={!dentro}
+        cargando={buscando}
         onClick={() => onConfirmar(posicion, direccion.data ?? null)}
       >
         Confirmar ubicación
@@ -247,7 +251,6 @@ export function PasoDetalles({
     control,
     formState: { errors },
   } = useForm<Detalles>({ resolver: zodResolver(esquemaDetalles), defaultValues: inicial })
-  const gravedad = useWatch({ control, name: 'gravedad' })
 
   return (
     <form noValidate className="flex flex-col gap-4" onSubmit={handleSubmit(onSeguir)}>
@@ -277,34 +280,13 @@ export function PasoDetalles({
         error={errors.direccion?.message}
         {...register('direccion')}
       />
-      <div className="flex flex-col gap-2">
-        <label
-          htmlFor="gravedad"
-          className="flex items-center justify-between text-[15px] font-semibold"
-        >
-          ¿Qué tan grave es?
-          <span
-            className="rounded-full px-3 py-1 text-[13px] text-white"
-            style={{ backgroundColor: colorGravedad(gravedad) }}
-          >
-            {gravedad} · {etiquetaGravedad(gravedad)}
-          </span>
-        </label>
-        <input
-          id="gravedad"
-          type="range"
-          min={1}
-          max={10}
-          step={1}
-          aria-valuetext={`${gravedad}, ${etiquetaGravedad(gravedad)}`}
-          className="w-full accent-primario"
-          {...register('gravedad', { valueAsNumber: true })}
-        />
-        <div className="flex justify-between text-[13px] text-texto-2" aria-hidden>
-          <span>Leve</span>
-          <span>Urgente</span>
-        </div>
-      </div>
+      <Controller
+        control={control}
+        name="gravedad"
+        render={({ field }) => (
+          <SelectorGravedad id="gravedad" valor={field.value} onCambio={field.onChange} />
+        )}
+      />
       <BotonPrincipal>Revisar</BotonPrincipal>
     </form>
   )

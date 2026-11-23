@@ -5,7 +5,15 @@ import { Link, Navigate } from 'react-router'
 import { Alerta, BotonPrincipal } from '../componentes/ui'
 import { useSesion } from '../cuentas/api'
 import { etiquetaGravedad } from '../dominio/gravedad'
-import { CLAVE_MIS_RECLAMOS, crearReclamo, type Posicion, type TipoReclamo } from '../reclamos/api'
+import {
+  buscarSimilares,
+  CLAVE_MIS_RECLAMOS,
+  crearReclamo,
+  type ApoyoRegistrado,
+  type Posicion,
+  type ReclamoSimilar,
+  type TipoReclamo,
+} from '../reclamos/api'
 import IconoTipo from '../reclamos/IconoTipo'
 import { DETALLES_INICIALES, type Detalles } from '../reclamos/detalles'
 import {
@@ -15,6 +23,7 @@ import {
   PasoUbicacion,
   type FotoElegida,
 } from '../reclamos/pasos'
+import { ApoyoConfirmado, HojaDeSimilares } from '../reclamos/similares'
 
 const PASOS = ['Tipo', 'Foto', 'Ubicación', 'Detalles', 'Resumen'] as const
 type Paso = (typeof PASOS)[number]
@@ -35,6 +44,12 @@ export default function NuevoReclamo() {
   const [foto, setFoto] = useState<FotoElegida>()
   const [posicion, setPosicion] = useState<Posicion>()
   const [detalles, setDetalles] = useState<Detalles>(DETALLES_INICIALES)
+  const [similares, setSimilares] = useState<ReclamoSimilar[]>()
+  const [apoyo, setApoyo] = useState<ApoyoRegistrado>()
+  const busqueda = useMutation({
+    mutationFn: ({ tipoId, posicion }: { tipoId: number; posicion: Posicion }) =>
+      buscarSimilares(tipoId, posicion),
+  })
   const clienteQuery = useQueryClient()
   const envio = useMutation({
     mutationFn: crearReclamo,
@@ -50,6 +65,9 @@ export default function NuevoReclamo() {
   if (!sesion.data) {
     return <Navigate to="/ingresar" replace state={{ aviso: 'Ingresá para cargar un reclamo.' }} />
   }
+
+  // CU-05: apoyó un reclamo existente en vez de cargar uno nuevo.
+  if (apoyo) return <ApoyoConfirmado registrado={apoyo} />
 
   if (envio.isSuccess) {
     return (
@@ -126,11 +144,36 @@ export default function NuevoReclamo() {
       )}
       {paso === 'Ubicación' && (
         <PasoUbicacion
+          buscando={busqueda.isPending}
           onConfirmar={(confirmada, direccion) => {
             setPosicion(confirmada)
             // RF-10: la dirección sugerida completa el campo, que el vecino puede editar.
             if (direccion) setDetalles((d) => (d.direccion ? d : { ...d, direccion }))
+            if (!tipo) return
+            // CU-04 paso 5 (RN-01): antes de los detalles, ¿ya lo reportó otro vecino?
+            busqueda.mutate(
+              { tipoId: tipo.id, posicion: confirmada },
+              {
+                onSuccess: (lista) =>
+                  lista.length > 0 ? setSimilares(lista) : setPaso('Detalles'),
+                // Si la búsqueda falla, no se frena la carga: se sigue como si no hubiera.
+                onError: () => setPaso('Detalles'),
+              },
+            )
+          }}
+        />
+      )}
+      {paso === 'Ubicación' && similares && (
+        <HojaDeSimilares
+          similares={similares}
+          onCerrar={() => setSimilares(undefined)}
+          onNinguno={() => {
+            setSimilares(undefined)
             setPaso('Detalles')
+          }}
+          onApoyado={(reclamo, registrado) => {
+            void clienteQuery.invalidateQueries({ queryKey: ['reclamo', reclamo.id] })
+            setApoyo(registrado)
           }}
         />
       )}
