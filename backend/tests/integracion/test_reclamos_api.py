@@ -186,3 +186,21 @@ def test_las_fotos_van_a_un_bucket_s3_real() -> None:
     assert objeto["Body"].read() == b"contenido"
     assert objeto["ContentType"] == "image/jpeg"
     assert "X-Amz-Signature" in url
+
+
+def test_rf10_direccion_del_pin_solo_con_sesion(
+    vecina: TestClient, cliente_con_almacen: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "app.rutas.reclamos.direccion_de", lambda lat, lng: f"Calle falsa {lat:.2f},{lng:.2f}"
+    )
+
+    respuesta = vecina.get("/direccion", params=CENTRO)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"direccion": "Calle falsa -31.29,-64.30"}
+    assert vecina.get("/direccion", params={"latitud": 200, "longitud": 0}).status_code == 422
+
+
+def test_rf10_direccion_sin_sesion_responde_401(cliente_con_almacen: TestClient) -> None:
+    assert cliente_con_almacen.get("/direccion", params=CENTRO).status_code == 401

@@ -10,24 +10,23 @@ export interface PropsMapa {
   onCambio: (posicion: Posicion) => void
   ejido: Anillo
   dentro: boolean
+  onUbicarme: () => void
 }
 
-const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-
-// Google Maps solo se descarga si hay key: el resto de la app no carga ese código.
-const MapaGoogle = lazy(() => import('./MapaGoogle'))
+// El mapa real (MapLibre, ~200 KB comprimido) se descarga recién en el paso de ubicación.
+const MapaOSM = lazy(() => import('./MapaOSM'))
 
 /**
- * Con key, Google Maps. Sin key (CI, o en local antes de configurarla), un mapa simulado que
- * se maneja con botones y teclado: las pruebas E2E no gastan cuota ni dependen de la red.
+ * Mapa real de OpenStreetMap, salvo con VITE_MAPA=simulado (CI y pruebas): ahí un mapa
+ * simulado que se maneja con botones y teclado, sin red y sin depender de terceros.
  */
 export default function MapaSelector(props: PropsMapa) {
-  if (!API_KEY) {
+  if (import.meta.env.VITE_MAPA === 'simulado') {
     return <MapaSimulado key={`${props.centro.latitud},${props.centro.longitud}`} {...props} />
   }
   return (
     <Suspense fallback={<div className="h-[55dvh] animate-pulse rounded-hoja bg-slate-200" />}>
-      <MapaGoogle apiKey={API_KEY} {...props} />
+      <MapaOSM {...props} />
     </Suspense>
   )
 }

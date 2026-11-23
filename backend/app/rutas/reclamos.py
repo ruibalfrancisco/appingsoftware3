@@ -4,7 +4,7 @@ import logging
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, status
 from geoalchemy2.elements import WKTElement
 from geoalchemy2.shape import to_shape
 from shapely.geometry import Point
@@ -23,9 +23,10 @@ from app.esquemas import (
     TipoPublico,
 )
 from app.fotos import MAX_BYTES, FotoInvalidaError, procesar_foto
+from app.geocodificacion import direccion_de
 from app.modelos import Apoyo, Foto, HistorialEstado, Reclamo, TipoReclamo
 from app.seguridad import ahora
-from app.sesion import DbDep, UsuarioActual, VecinoVerificado
+from app.sesion import DbDep, SettingsDep, UsuarioActual, VecinoVerificado
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +53,19 @@ def ejido() -> dict[str, Any]:
     """RF-09: el polígono para dibujar en el mapa y dónde abrirlo si no hay GPS (CU-04 3a)."""
     latitud, longitud = centro_del_ejido()
     return {"geojson": geojson_del_ejido(), "centro": {"latitud": latitud, "longitud": longitud}}
+
+
+@router.get("/direccion")
+def direccion(
+    _usuario: VecinoVerificado,
+    settings: SettingsDep,
+    latitud: Annotated[float, Query(ge=-90, le=90)],
+    longitud: Annotated[float, Query(ge=-180, le=180)],
+) -> dict[str, str | None]:
+    """RF-10: dirección aproximada del pin. Solo con sesión, para no ser un proxy abierto."""
+    if not settings.geocodificar:
+        return {"direccion": None}
+    return {"direccion": direccion_de(latitud, longitud)}
 
 
 @router.post("/reclamos", status_code=status.HTTP_201_CREATED)

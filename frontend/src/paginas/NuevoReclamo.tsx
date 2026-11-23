@@ -121,8 +121,10 @@ export default function NuevoReclamo() {
       )}
       {paso === 'Ubicación' && (
         <PasoUbicacion
-          onConfirmar={(confirmada) => {
+          onConfirmar={(confirmada, direccion) => {
             setPosicion(confirmada)
+            // RF-10: la dirección sugerida completa el campo, que el vecino puede editar.
+            if (direccion) setDetalles((d) => (d.direccion ? d : { ...d, direccion }))
             setPaso('Detalles')
           }}
         />

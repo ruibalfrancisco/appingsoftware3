@@ -1,11 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Camera, Images, LocateFixed, RotateCcw } from 'lucide-react'
+import { Camera, Images, MapPin, RotateCcw } from 'lucide-react'
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { Alerta, BotonPrincipal, Campo } from '../componentes/ui'
 import { etiquetaGravedad } from '../dominio/gravedad'
 import type { Posicion, TipoReclamo } from './api'
-import { useEjido, useTipos } from './api'
+import { useDireccion, useEjido, useTipos } from './api'
 import { colorGravedad, esquemaDetalles, type Detalles } from './detalles'
 import { dentroDelEjido } from './geocerca'
 import IconoTipo from './IconoTipo'
@@ -147,11 +147,18 @@ function pedirUbicacion(): Promise<Posicion> {
   })
 }
 
-export function PasoUbicacion({ onConfirmar }: { onConfirmar: (posicion: Posicion) => void }) {
+export function PasoUbicacion({
+  onConfirmar,
+}: {
+  onConfirmar: (posicion: Posicion, direccion: string | null) => void
+}) {
   const ejido = useEjido()
   const [centro, setCentro] = useState<Posicion>()
   const [posicion, setPosicion] = useState<Posicion>()
   const [sinGps, setSinGps] = useState(false)
+  const anillo = ejido.data?.geojson.features[0].geometry.coordinates[0]
+  const dentro = anillo !== undefined && posicion !== undefined && dentroDelEjido(posicion, anillo)
+  const direccion = useDireccion(posicion, dentro)
 
   const ubicar = useCallback(
     (respaldo: Posicion) =>
@@ -176,16 +183,13 @@ export function PasoUbicacion({ onConfirmar }: { onConfirmar: (posicion: Posicio
   }, [respaldo, ubicar])
 
   if (ejido.isError) return <Alerta tipo="error">{ejido.error.message}</Alerta>
-  if (!ejido.data || !centro || !posicion) {
+  if (!ejido.data || !anillo || !centro || !posicion) {
     return (
       <p role="status" className="text-[17px] text-texto-2">
         Buscando tu ubicación…
       </p>
     )
   }
-
-  const anillo = ejido.data.geojson.features[0].geometry.coordinates[0]
-  const dentro = dentroDelEjido(posicion, anillo)
 
   return (
     <div className="flex flex-col gap-3">
@@ -194,16 +198,34 @@ export function PasoUbicacion({ onConfirmar }: { onConfirmar: (posicion: Posicio
           No pudimos usar tu ubicación. Mové el mapa hasta el lugar del problema.
         </p>
       )}
-      <MapaSelector centro={centro} onCambio={setPosicion} ejido={anillo} dentro={dentro} />
-      <button
-        type="button"
-        onClick={() => void ubicar(ejido.data.centro)}
-        className="flex items-center justify-center gap-2 text-[15px] font-semibold text-primario"
-      >
-        <LocateFixed aria-hidden className="size-5" /> Usar mi ubicación
-      </button>
+      {dentro && (
+        <div
+          aria-live="polite"
+          className="flex min-h-11 items-center gap-2 rounded-tarjeta bg-superficie px-3 py-2 text-[15px] shadow-sm ring-1 ring-slate-200"
+        >
+          <MapPin aria-hidden className="size-5 shrink-0 text-primario" />
+          {direccion.isFetching ? (
+            <span className="text-texto-2">Buscando la dirección…</span>
+          ) : direccion.data ? (
+            <span className="font-semibold">{direccion.data}</span>
+          ) : (
+            <span className="text-texto-2">Mové el mapa hasta el lugar exacto</span>
+          )}
+        </div>
+      )}
+      <MapaSelector
+        centro={centro}
+        onCambio={setPosicion}
+        ejido={anillo}
+        dentro={dentro}
+        onUbicarme={() => void ubicar(ejido.data.centro)}
+      />
       {!dentro && <Alerta tipo="error">Esta ubicación está fuera de Villa Allende</Alerta>}
-      <BotonPrincipal type="button" disabled={!dentro} onClick={() => onConfirmar(posicion)}>
+      <BotonPrincipal
+        type="button"
+        disabled={!dentro}
+        onClick={() => onConfirmar(posicion, direccion.data ?? null)}
+      >
         Confirmar ubicación
       </BotonPrincipal>
     </div>

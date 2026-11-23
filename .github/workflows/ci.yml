@@ -208,8 +208,9 @@ jobs:
       AWS_ACCESS_KEY_ID: reclamos
       AWS_SECRET_ACCESS_KEY: reclamos-local
       AWS_S3_BUCKET_NAME: fotos
-      # Sin key de Google: la web usa el mapa simulado (no gasta cuota ni depende de la red).
-      VITE_GOOGLE_MAPS_API_KEY: ''
+      # Mapa simulado y sin búsqueda de direcciones: los E2E no dependen de servicios externos.
+      VITE_MAPA: simulado
+      GEOCODIFICAR: 'false'
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.4.0

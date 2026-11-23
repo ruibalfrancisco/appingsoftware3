@@ -13,8 +13,8 @@ la decisión cambia, se escribe uno nuevo que lo reemplaza.
 | [0005](0005-rustfs-como-s3-local.md) | RustFS como S3 local en lugar de MinIO | Aceptada |
 | [0006](0006-infraestructura-de-railway-como-codigo.md) | Infraestructura de Railway como código | Aceptada (reemplaza parte del 0003) |
 | [0007](0007-la-web-hace-de-proxy-de-la-api.md) | La web hace de proxy de la API (cookies propias) | Aceptada |
+| [0008](0008-mapa-con-openstreetmap.md) | Mapa con OpenStreetMap en lugar de Google Maps | Aceptada |
 
 Pendientes de escribir (ver "Decisiones a justificar" en el documento de requerimientos):
-Google Maps simulado en CI, PostGIS para distancias y geocerca, prioridad con logaritmo, base
-real en integración, Railway Bucket para fotos, una sola app React, cuenta propia con DNI y una
-sola key de Google Maps.
+PostGIS para distancias y geocerca, prioridad con logaritmo, base
+real en integración, Railway Bucket para fotos, una sola app React y cuenta propia con DNI.
