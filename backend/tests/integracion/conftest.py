@@ -14,9 +14,11 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, text
 
+from app.almacenamiento import AlmacenEnMemoria, obtener_almacen
 from app.config import Settings
 from app.correo import EnviadorEnMemoria, obtener_enviador
 from app.main import app
+from app.seguridad import hashear_password
 
 RAIZ_BACKEND = Path(__file__).resolve().parents[2]
 
@@ -71,3 +73,45 @@ def cliente(base_limpia: Engine, correos: EnviadorEnMemoria) -> Iterator[TestCli
     with TestClient(app) as cliente:
         yield cliente
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def almacen() -> AlmacenEnMemoria:
+    return AlmacenEnMemoria()
+
+
+@pytest.fixture
+def cliente_con_almacen(cliente: TestClient, almacen: AlmacenEnMemoria) -> TestClient:
+    app.dependency_overrides[obtener_almacen] = lambda: almacen
+    return cliente
+
+
+def crear_usuario(
+    motor: Engine, dni: str, email: str, *, verificado: bool = True, rol: str = "vecino"
+) -> None:
+    with motor.begin() as conexion:
+        conexion.execute(
+            text(
+                "INSERT INTO usuario (dni, nombre, apellido, email, password_hash, rol,"
+                " acepto_terminos_en, email_verificado_en)"
+                " VALUES (:dni, 'Vecina', 'De Prueba', :email, :hash, :rol, now(),"
+                " CASE WHEN :verificado THEN now() END)"
+            ),
+            {
+                "dni": dni,
+                "email": email,
+                "hash": hashear_password(CLAVE_DE_PRUEBA),
+                "rol": rol,
+                "verificado": verificado,
+            },
+        )
+
+
+def ingresar(cliente: TestClient, dni: str) -> None:
+    respuesta = cliente.post(
+        "/auth/ingreso", json={"identificador": dni, "password": CLAVE_DE_PRUEBA}
+    )
+    assert respuesta.status_code in (200, 403), respuesta.text
+
+
+CLAVE_DE_PRUEBA = "clave-de-prueba-1"

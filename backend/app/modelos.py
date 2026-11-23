@@ -2,12 +2,15 @@
 
 from datetime import datetime
 
+from geoalchemy2 import Geography, WKBElement
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     MetaData,
     String,
+    UniqueConstraint,
     func,
     text,
 )
@@ -75,4 +78,108 @@ class Token(Base):
     hash: Mapped[str] = mapped_column(String(64), unique=True)
     expira_en: Mapped[datetime]
     usado_en: Mapped[datetime | None]
+    creado_en: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+ESTADOS = "('PENDIENTE', 'EN_REVISION', 'EN_PROCESO', 'RESUELTO', 'RECHAZADO')"
+
+
+class TipoReclamo(Base):
+    """Bache, luminaria rota, etc. Se cargan con datos semilla en la migración 0003."""
+
+    __tablename__ = "tipo_reclamo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(20), unique=True)
+    nombre: Mapped[str] = mapped_column(String(40))
+    icono: Mapped[str] = mapped_column(String(30))  # nombre del ícono de Lucide
+    color: Mapped[str] = mapped_column(String(7))  # color del marcador en el mapa
+    activo: Mapped[bool] = mapped_column(server_default=text("true"))
+
+
+class Area(Base):
+    """Área municipal responsable (RF-29)."""
+
+    __tablename__ = "area"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(40), unique=True)
+
+
+class Reclamo(Base):
+    __tablename__ = "reclamo"
+    __table_args__ = (
+        CheckConstraint(f"estado IN {ESTADOS}", name="estado_valido"),  # RN-05
+        # Búsqueda de similares a 50 m (RN-01) y validación espacial.
+        Index("ix_reclamo_ubicacion", "ubicacion", postgresql_using="gist"),
+        # RN-08: contar los reclamos del vecino en el día.
+        Index("ix_reclamo_usuario_creado", "usuario_id", "creado_en"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"))
+    tipo_id: Mapped[int] = mapped_column(ForeignKey("tipo_reclamo.id"))
+    area_id: Mapped[int | None] = mapped_column(ForeignKey("area.id"))
+    titulo: Mapped[str] = mapped_column(String(80))
+    descripcion: Mapped[str] = mapped_column(String(500))
+    direccion: Mapped[str | None] = mapped_column(String(200))
+    # geography: las distancias de PostGIS salen en metros sobre la esfera terrestre.
+    ubicacion: Mapped[WKBElement] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326, spatial_index=False)
+    )
+    estado: Mapped[str] = mapped_column(String(12), server_default="PENDIENTE")
+    # Se guardan para ordenar rápido; se recalculan en la misma transacción que cada apoyo.
+    cantidad_apoyos: Mapped[int]
+    gravedad_promedio: Mapped[float]
+    prioridad: Mapped[float]
+    creado_en: Mapped[datetime] = mapped_column(server_default=func.now())
+    actualizado_en: Mapped[datetime] = mapped_column(server_default=func.now())
+    cerrado_en: Mapped[datetime | None]
+
+
+class Apoyo(Base):
+    """ "Yo también lo vi" (RN-02). El creador cuenta como primer apoyo."""
+
+    __tablename__ = "apoyo"
+    __table_args__ = (
+        UniqueConstraint("reclamo_id", "usuario_id"),  # un apoyo por vecino
+        CheckConstraint("gravedad BETWEEN 1 AND 10", name="gravedad_1_a_10"),  # RN-03
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reclamo_id: Mapped[int] = mapped_column(ForeignKey("reclamo.id", ondelete="CASCADE"))
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"))
+    gravedad: Mapped[int]
+    es_creador: Mapped[bool] = mapped_column(server_default=text("false"))
+    creado_en: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class Foto(Base):
+    __tablename__ = "foto"
+    __table_args__ = (CheckConstraint("tipo IN ('reporte', 'resolucion')", name="tipo_valido"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reclamo_id: Mapped[int] = mapped_column(
+        ForeignKey("reclamo.id", ondelete="CASCADE"), index=True
+    )
+    tipo: Mapped[str] = mapped_column(String(10))
+    clave_storage: Mapped[str] = mapped_column(String(200))
+    ancho: Mapped[int]
+    alto: Mapped[int]
+    creado_en: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class HistorialEstado(Base):
+    """Solo inserciones (RN-05): cada cambio de estado con usuario y fecha."""
+
+    __tablename__ = "historial_estado"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reclamo_id: Mapped[int] = mapped_column(
+        ForeignKey("reclamo.id", ondelete="CASCADE"), index=True
+    )
+    estado_anterior: Mapped[str | None] = mapped_column(String(12))
+    estado_nuevo: Mapped[str] = mapped_column(String(12))
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"))
+    comentario: Mapped[str | None] = mapped_column(String(500))
     creado_en: Mapped[datetime] = mapped_column(server_default=func.now())

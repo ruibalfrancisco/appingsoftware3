@@ -136,8 +136,20 @@ jobs:
           --health-interval 2s
           --health-timeout 3s
           --health-retries 30
+      fotos:
+        # Servidor S3 local, como en infra/docker-compose.yml. La prueba crea el bucket.
+        image: rustfs/rustfs:1.0.6
+        env:
+          RUSTFS_ACCESS_KEY: reclamos
+          RUSTFS_SECRET_KEY: reclamos-local
+        ports:
+          - 9000:9000
     env:
       DATABASE_URL: postgresql://reclamos:reclamos@localhost:5432/reclamos
+      AWS_ENDPOINT_URL: http://127.0.0.1:9000
+      AWS_ACCESS_KEY_ID: reclamos
+      AWS_SECRET_ACCESS_KEY: reclamos-local
+      AWS_S3_BUCKET_NAME: fotos
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.4.0

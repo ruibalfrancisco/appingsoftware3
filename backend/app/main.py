@@ -6,13 +6,14 @@ from pydantic import BaseModel
 
 from app.build_info import obtener_build_info
 from app.config import obtener_settings
-from app.rutas import cuentas
+from app.rutas import cuentas, reclamos
 
 settings = obtener_settings()
 build_info = obtener_build_info()
 
 app = FastAPI(title="Reclamos Villa Allende API", version=build_info.version)
 app.include_router(cuentas.router)
+app.include_router(reclamos.router)
 
 app.add_middleware(
     CORSMiddleware,

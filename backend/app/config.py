@@ -38,6 +38,16 @@ class Settings(BaseSettings):
     smtp_port: int = 1025
     resend_api_key: str = ""
 
+    # Fotos: bucket S3 (RustFS en local y CI, Railway Bucket en la nube). Mismos nombres que las
+    # variables que Railway inyecta desde el bucket.
+    aws_endpoint_url: str = "http://127.0.0.1:9000"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_default_region: str = "us-east-1"
+    aws_s3_bucket_name: str = "fotos"
+    # RustFS necesita "path" (http://host/bucket/clave); en la nube puede ser "virtual".
+    aws_s3_addressing_style: Literal["path", "virtual", "auto"] = "path"
+
     @model_validator(mode="after")
     def _secretos_obligatorios_en_railway(self) -> "Settings":
         if self.es_railway and self.jwt_secret == JWT_SECRET_DE_DESARROLLO:
