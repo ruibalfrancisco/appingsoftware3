@@ -29,7 +29,7 @@ test.describe('con GPS en Villa Allende', () => {
 
     await hastaLaUbicacion(page)
     await page.getByRole('button', { name: 'Confirmar ubicación' }).click()
-    await page.getByLabel('Título').fill('Bache profundo en la esquina')
+    // Sin título: el reclamo se nombra por su tipo; el vecino solo lo describe.
     await page.getByLabel('Descripción').fill('Hay que esquivarlo con el auto')
     const gravedad = page.getByRole('slider')
     await gravedad.focus()
@@ -37,7 +37,7 @@ test.describe('con GPS en Villa Allende', () => {
     await page.getByRole('button', { name: 'Revisar' }).click()
 
     const resumen = page.getByRole('region', { name: 'Resumen del reclamo' })
-    await expect(resumen).toContainText('Bache profundo en la esquina')
+    await expect(resumen).toContainText('Hay que esquivarlo con el auto')
     await expect(resumen).toContainText('8 · Grave')
     await page.getByRole('button', { name: 'Enviar reclamo' }).click()
 
@@ -45,7 +45,8 @@ test.describe('con GPS en Villa Allende', () => {
     expect(Date.now() - inicio).toBeLessThan(60_000)
 
     await page.getByRole('link', { name: 'Ver mi reclamo' }).click()
-    await expect(page.getByRole('heading', { name: 'Bache profundo en la esquina' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Bache', exact: true })).toBeVisible()
+    await expect(page.getByText('Hay que esquivarlo con el auto')).toBeVisible()
     await expect(page.getByText('Pendiente')).toBeVisible()
     // La foto viene del bucket con URL firmada: tiene que cargar de verdad.
     const foto = page.getByRole('img', { name: /Foto del reclamo/ })

@@ -72,8 +72,10 @@ class NuevoReclamo(BaseModel):
     """Campos de texto del formulario de CU-04; la foto viaja aparte en el mismo multipart."""
 
     tipo_id: int
-    titulo: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
-    descripcion: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] = ""
+    # Sin título: el tipo ya dice qué es; el vecino solo cuenta qué pasa.
+    descripcion: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+    ]
     direccion: Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)] | None = (
         None
     )
@@ -102,7 +104,6 @@ class ReclamoDetalle(BaseModel):
     id: int
     numero: int
     tipo: TipoPublico
-    titulo: str
     descripcion: str
     direccion: str | None
     latitud: float

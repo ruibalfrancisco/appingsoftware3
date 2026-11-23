@@ -116,7 +116,6 @@ def crear_reclamo(
         reclamo = Reclamo(
             usuario_id=usuario.id,
             tipo_id=tipo.id,
-            titulo=datos.titulo,
             descripcion=datos.descripcion,
             direccion=datos.direccion or None,
             ubicacion=WKTElement(f"POINT({datos.longitud} {datos.latitud})", srid=4326),
@@ -182,7 +181,6 @@ def ver_reclamo(
         id=reclamo.id,
         numero=reclamo.id,
         tipo=a_tipo_publico(tipo),
-        titulo=reclamo.titulo,
         descripcion=reclamo.descripcion,
         direccion=reclamo.direccion,
         latitud=punto.y,

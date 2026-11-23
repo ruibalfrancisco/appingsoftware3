@@ -27,7 +27,13 @@ def foto_con_exif() -> bytes:
 
 
 def datos_del_reclamo(**cambios: Any) -> dict[str, Any]:
-    return {"tipo_id": 1, "titulo": "Bache en la esquina", "gravedad": 7, **CENTRO, **cambios}
+    return {
+        "tipo_id": 1,
+        "descripcion": "Ocupa medio carril",
+        "gravedad": 7,
+        **CENTRO,
+        **cambios,
+    }
 
 
 def reclamar(cliente: TestClient, foto: bytes | None = None, **cambios: Any) -> Any:
@@ -129,16 +135,16 @@ def test_it06_el_sexto_reclamo_del_dia_responde_429(vecina: TestClient) -> None:
     [
         ({"gravedad": 11}, None),
         ({"gravedad": 0}, None),
-        ({"titulo": ""}, None),
-        ({"titulo": "x" * 81}, None),
+        ({"descripcion": "   "}, None),
+        ({"descripcion": "x" * 501}, None),
         ({"tipo_id": 999}, None),
         ({}, b"no es una imagen"),
     ],
     ids=[
         "gravedad-11",
         "gravedad-0",
-        "sin-titulo",
-        "titulo-largo",
+        "sin-descripcion",
+        "descripcion-larga",
         "tipo-inexistente",
         "foto-rota",
     ],

@@ -33,7 +33,6 @@ export interface ReclamoDetalle {
   id: number
   numero: number
   tipo: TipoReclamo
-  titulo: string
   descripcion: string
   direccion: string | null
   latitud: number
@@ -49,7 +48,6 @@ export interface ReclamoDetalle {
 
 export interface NuevoReclamo extends Posicion {
   tipoId: number
-  titulo: string
   descripcion: string
   direccion: string
   gravedad: number
@@ -83,7 +81,6 @@ export function useReclamo(id: number) {
 export async function crearReclamo(datos: NuevoReclamo): Promise<ReclamoCreado> {
   const formulario = new FormData()
   formulario.append('tipo_id', String(datos.tipoId))
-  formulario.append('titulo', datos.titulo)
   formulario.append('descripcion', datos.descripcion)
   if (datos.direccion) formulario.append('direccion', datos.direccion)
   formulario.append('gravedad', String(datos.gravedad))

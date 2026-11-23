@@ -34,11 +34,11 @@ export default function DetalleReclamo() {
   const r = reclamo.data
   const fotoReporte = r.fotos.find((f) => f.tipo === 'reporte')
   return (
-    <Pantalla titulo={r.titulo} bajada={`Reclamo #${r.numero}`} volverA="/">
+    <Pantalla titulo={r.tipo.nombre} bajada={`Reclamo #${r.numero}`} volverA="/">
       {fotoReporte && (
         <img
           src={fotoReporte.url}
-          alt={`Foto del reclamo: ${r.titulo}`}
+          alt={`Foto del reclamo: ${r.tipo.nombre}`}
           width={fotoReporte.ancho}
           height={fotoReporte.alto}
           className="h-auto w-full rounded-tarjeta object-cover"
@@ -77,7 +77,7 @@ export default function DetalleReclamo() {
         {r.descripcion && (
           <div className="col-span-2">
             <dt className="text-[13px] text-texto-2">Descripción</dt>
-            <dd>{r.descripcion}</dd>
+            <dd className="whitespace-pre-line">{r.descripcion}</dd>
           </div>
         )}
       </dl>

@@ -251,24 +251,25 @@ export function PasoDetalles({
 
   return (
     <form noValidate className="flex flex-col gap-4" onSubmit={handleSubmit(onSeguir)}>
-      <Campo
-        etiqueta="Título"
-        ayuda="Por ejemplo: Bache grande frente a la escuela"
-        maxLength={80}
-        error={errors.titulo?.message}
-        {...register('titulo')}
-      />
       <div className="flex flex-col gap-1">
         <label htmlFor="descripcion" className="text-[15px] font-semibold">
-          Descripción <span className="font-normal text-texto-2">(opcional)</span>
+          Descripción
         </label>
         <textarea
           id="descripcion"
-          rows={3}
+          rows={4}
           maxLength={500}
-          className="rounded-tarjeta border border-slate-300 bg-superficie p-3 text-[17px] outline-none focus:border-primario focus:ring-2 focus:ring-primario/30"
+          placeholder="Por ejemplo: ocupa medio carril y de noche no se ve"
+          aria-invalid={errors.descripcion ? true : undefined}
+          aria-describedby={errors.descripcion ? 'descripcion-error' : undefined}
+          className="rounded-tarjeta border border-slate-300 bg-superficie p-3 text-[17px] outline-none placeholder:text-slate-400 focus:border-primario focus:ring-2 focus:ring-primario/30 aria-invalid:border-error"
           {...register('descripcion')}
         />
+        {errors.descripcion && (
+          <p id="descripcion-error" className="text-[13px] font-semibold text-error">
+            {errors.descripcion.message}
+          </p>
+        )}
       </div>
       <Campo
         etiqueta="Dirección o referencia (opcional)"

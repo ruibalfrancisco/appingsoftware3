@@ -120,7 +120,6 @@ class Reclamo(Base):
     usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"))
     tipo_id: Mapped[int] = mapped_column(ForeignKey("tipo_reclamo.id"))
     area_id: Mapped[int | None] = mapped_column(ForeignKey("area.id"))
-    titulo: Mapped[str] = mapped_column(String(80))
     descripcion: Mapped[str] = mapped_column(String(500))
     direccion: Mapped[str | None] = mapped_column(String(200))
     # geography: las distancias de PostGIS salen en metros sobre la esfera terrestre.
