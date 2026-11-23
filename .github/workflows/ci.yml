@@ -160,13 +160,22 @@ jobs:
       - name: Construir la imagen de la api
         run: docker build -t reclamos-api:ci backend
       - name: Construir la imagen de la web
-        run: docker build -t reclamos-web:ci --build-arg VITE_API_URL=http://localhost:8000 frontend
-      - name: Probar que los contenedores arrancan y responden
+        run: docker build -t reclamos-web:ci frontend
+      # Misma topología que en Railway: la web reenvía /api a la api por una red privada.
+      - name: Probar los contenedores y el proxy /api
         run: |
-          docker run -d --name api -e PORT=8000 -p 8000:8000 reclamos-api:ci
-          docker run -d --name web -e PORT=8080 -p 8080:8080 reclamos-web:ci
+          docker network create privada
+          docker run -d --name api --network privada -e PORT=8000 reclamos-api:ci
+          docker run -d --name web --network privada -e PORT=8080 \
+            -e API_INTERNAL_URL=http://api:8000 -p 8080:8080 reclamos-web:ci
           for i in $(seq 1 30); do
-            curl -fsS http://localhost:8000/health && curl -fsS -o /dev/null http://localhost:8080/ && exit 0
+            if curl -fsS http://localhost:8080/api/health; then
+              echo
+              curl -fsS -D - -o /dev/null http://localhost:8080/ | tee headers.txt
+              grep -qi '^x-content-type-options: nosniff' headers.txt
+              grep -qi '^x-frame-options: deny' headers.txt
+              exit 0
+            fi
             sleep 1
           done
           docker logs api; docker logs web

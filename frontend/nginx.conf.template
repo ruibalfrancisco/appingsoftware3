@@ -1,3 +1,7 @@
+# DNS del contenedor (en Railway, el de la red privada). La imagen oficial completa
+# NGINX_LOCAL_RESOLVERS a partir de /etc/resolv.conf cuando NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1.
+resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
+
 server {
     listen ${PORT};
     server_name _;
@@ -8,19 +12,33 @@ server {
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
 
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header X-Frame-Options "DENY" always;
+    # La API vive en otro servicio, pero el navegador la ve en este mismo dominio: así la
+    # cookie de sesión es propia (Safari y Firefox bloquean las de terceros) y no hace
+    # falta CORS. El nombre se resuelve en cada pedido para no depender del orden de arranque.
+    location /api/ {
+        include /etc/nginx/snippets/seguridad.conf;
+        set $api ${API_INTERNAL_URL};
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass $api;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Request-Id $request_id;
+        proxy_connect_timeout 5s;
+        # Fotos de hasta 10 MB (RN-10) más el resto del formulario.
+        client_max_body_size 12m;
+    }
 
     # Los archivos con hash en el nombre se pueden cachear para siempre.
     location /assets/ {
-        add_header Cache-Control "public, max-age=31536000, immutable";
+        include /etc/nginx/snippets/seguridad.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
         try_files $uri =404;
     }
 
     # SPA: cualquier ruta desconocida devuelve index.html (React Router decide).
     location / {
-        add_header Cache-Control "no-cache";
+        include /etc/nginx/snippets/seguridad.conf;
+        add_header Cache-Control "no-cache" always;
         try_files $uri $uri/ /index.html;
     }
 }

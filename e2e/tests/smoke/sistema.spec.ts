@@ -15,6 +15,13 @@ test('la API responde /health con la versión desplegada', async ({ request }) =
   }
 })
 
+test('la web reenvía /api a la API por la red privada', async ({ request }) => {
+  const respuesta = await request.get('/api/health')
+
+  expect(respuesta.ok()).toBeTruthy()
+  expect((await respuesta.json()).status).toBe('ok')
+})
+
 test('la web carga y se conecta con la API', async ({ page }) => {
   await page.goto('/')
 
