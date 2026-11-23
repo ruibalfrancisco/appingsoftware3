@@ -28,13 +28,16 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
-      // MapaOSM (MapLibre) necesita WebGL, que jsdom no tiene: lo cubren las pruebas en staging.
+      // Los mapas de MapLibre necesitan WebGL, que jsdom no tiene: los cubren las pruebas en
+      // staging. Sus reemplazos simulados (mismo contrato) sí se prueban acá.
       exclude: [
         'src/main.tsx',
         'src/test/**',
         'src/**/*.test.{ts,tsx}',
         'src/vite-env.d.ts',
         'src/reclamos/mapa/MapaOSM.tsx',
+        'src/reclamos/mapa/MapaDeReclamosOSM.tsx',
+        'src/reclamos/mapa/maplibre.ts',
       ],
       // RNF-10: 70 % de cobertura en el frontend; por debajo, el CI falla.
       thresholds: { lines: 70, functions: 70, branches: 70, statements: 70 },

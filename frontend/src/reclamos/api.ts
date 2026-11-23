@@ -46,6 +46,21 @@ export interface ReclamoDetalle {
   es_propio: boolean
 }
 
+/** Una fila de "Mis reclamos". */
+export interface ReclamoResumen {
+  id: number
+  numero: number
+  tipo: TipoReclamo
+  descripcion: string
+  direccion: string | null
+  latitud: number
+  longitud: number
+  estado: string
+  cantidad_apoyos: number
+  creado_en: string
+  foto_url: string | null
+}
+
 export interface NuevoReclamo extends Posicion {
   tipoId: number
   descripcion: string
@@ -74,6 +89,17 @@ export function useReclamo(id: number) {
   return useQuery({
     queryKey: ['reclamo', id],
     queryFn: ({ signal }) => pedir<ReclamoDetalle>(`/reclamos/${id}`, { signal }),
+  })
+}
+
+export const CLAVE_MIS_RECLAMOS = ['reclamos', 'mios'] as const
+
+/** Los reclamos que cargó el vecino, del más nuevo al más viejo. */
+export function useMisReclamos(habilitada: boolean) {
+  return useQuery({
+    queryKey: CLAVE_MIS_RECLAMOS,
+    queryFn: ({ signal }) => pedir<ReclamoResumen[]>('/reclamos/mios', { signal }),
+    enabled: habilitada,
   })
 }
 

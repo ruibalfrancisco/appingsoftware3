@@ -1,4 +1,4 @@
-"""Reclamos: tipos, ejido, creación (CU-04) y detalle."""
+"""Reclamos: tipos, ejido, creación (CU-04), los del vecino y detalle."""
 
 import logging
 import uuid
@@ -14,12 +14,18 @@ from app.almacenamiento import AlmacenDeFotos, obtener_almacen
 from app.dominio.estados import EstadoReclamo
 from app.dominio.geocerca import centro_del_ejido, dentro_del_ejido, geojson_del_ejido
 from app.dominio.prioridad import calcular_prioridad
-from app.dominio.reclamos import ZONA_HORARIA, inicio_del_dia, puede_crear_otro
+from app.dominio.reclamos import (
+    DIRECCION_MAX,
+    ZONA_HORARIA,
+    inicio_del_dia,
+    puede_crear_otro,
+)
 from app.esquemas import (
     FotoPublica,
     NuevoReclamo,
     ReclamoCreado,
     ReclamoDetalle,
+    ReclamoResumen,
     TipoPublico,
 )
 from app.fotos import MAX_BYTES, FotoInvalidaError, procesar_foto
@@ -39,6 +45,14 @@ def a_tipo_publico(tipo: TipoReclamo) -> TipoPublico:
     return TipoPublico(
         id=tipo.id, codigo=tipo.codigo, nombre=tipo.nombre, icono=tipo.icono, color=tipo.color
     )
+
+
+def coordenadas(reclamo: Reclamo) -> tuple[float, float]:
+    """(latitud, longitud) del punto guardado."""
+    punto = to_shape(reclamo.ubicacion)
+    if not isinstance(punto, Point):  # la columna es geography(POINT)
+        raise TypeError("La ubicación del reclamo no es un punto")
+    return punto.y, punto.x
 
 
 @router.get("/tipos")
@@ -75,6 +89,7 @@ def crear_reclamo(
     usuario: VecinoVerificado,
     db: DbDep,
     almacen: AlmacenDep,
+    settings: SettingsDep,
 ) -> ReclamoCreado:
     """CU-04: guarda el reclamo con su foto y el creador como primer apoyo."""
     # RN-06: se valida aunque el frontend ya bloquee el pin afuera del ejido.
@@ -108,6 +123,13 @@ def crear_reclamo(
     except FotoInvalidaError as error:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from None
 
+    # RF-10: si el vecino no escribió la dirección (o confirmó el pin antes de que apareciera
+    # la sugerida), se busca acá. Casi siempre ya está en caché por la consulta del pin.
+    direccion = datos.direccion or None
+    if direccion is None and settings.geocodificar:
+        encontrada = direccion_de(datos.latitud, datos.longitud)
+        direccion = encontrada[:DIRECCION_MAX] if encontrada else None
+
     mes = momento.astimezone(ZONA_HORARIA).strftime("%Y/%m")
     clave = f"reclamos/{mes}/{uuid.uuid4()}.jpg"
     almacen.guardar(clave, procesada.contenido, procesada.tipo_mime)
@@ -117,7 +139,7 @@ def crear_reclamo(
             usuario_id=usuario.id,
             tipo_id=tipo.id,
             descripcion=datos.descripcion,
-            direccion=datos.direccion or None,
+            direccion=direccion,
             ubicacion=WKTElement(f"POINT({datos.longitud} {datos.latitud})", srid=4326),
             estado=EstadoReclamo.PENDIENTE,
             cantidad_apoyos=1,
@@ -164,6 +186,48 @@ def crear_reclamo(
     )
 
 
+# Va antes de /reclamos/{reclamo_id}: si no, "mios" se tomaría como un número de reclamo.
+@router.get("/reclamos/mios")
+def mis_reclamos(usuario: UsuarioActual, db: DbDep, almacen: AlmacenDep) -> list[ReclamoResumen]:
+    """Los reclamos que cargó el vecino, del más nuevo al más viejo, con su ubicación."""
+    filas = db.execute(
+        select(Reclamo, TipoReclamo)
+        .join(TipoReclamo, TipoReclamo.id == Reclamo.tipo_id)
+        .where(Reclamo.usuario_id == usuario.id)
+        .order_by(Reclamo.creado_en.desc(), Reclamo.id.desc())
+    ).all()
+    # Una sola consulta para todas las fotos, no una por reclamo.
+    fotos = {
+        foto.reclamo_id: foto
+        for foto in db.scalars(
+            select(Foto)
+            .where(Foto.reclamo_id.in_([reclamo.id for reclamo, _ in filas]))
+            .where(Foto.tipo == "reporte")
+            .order_by(Foto.id.desc())  # si hubiera más de una, queda la primera
+        )
+    }
+    resumenes = []
+    for reclamo, tipo in filas:
+        latitud, longitud = coordenadas(reclamo)
+        foto = fotos.get(reclamo.id)
+        resumenes.append(
+            ReclamoResumen(
+                id=reclamo.id,
+                numero=reclamo.id,
+                tipo=a_tipo_publico(tipo),
+                descripcion=reclamo.descripcion,
+                direccion=reclamo.direccion,
+                latitud=latitud,
+                longitud=longitud,
+                estado=reclamo.estado,
+                cantidad_apoyos=reclamo.cantidad_apoyos,
+                creado_en=reclamo.creado_en,
+                foto_url=almacen.url_firmada(foto.clave_storage) if foto else None,
+            )
+        )
+    return resumenes
+
+
 @router.get("/reclamos/{reclamo_id}")
 def ver_reclamo(
     reclamo_id: int, usuario: UsuarioActual, db: DbDep, almacen: AlmacenDep
@@ -174,17 +238,15 @@ def ver_reclamo(
     tipo = db.get(TipoReclamo, reclamo.tipo_id)
     assert tipo is not None  # FK obligatoria  # noqa: S101
     fotos = db.scalars(select(Foto).where(Foto.reclamo_id == reclamo.id).order_by(Foto.id))
-    punto = to_shape(reclamo.ubicacion)
-    if not isinstance(punto, Point):  # la columna es geography(POINT)
-        raise TypeError("La ubicación del reclamo no es un punto")
+    latitud, longitud = coordenadas(reclamo)
     return ReclamoDetalle(
         id=reclamo.id,
         numero=reclamo.id,
         tipo=a_tipo_publico(tipo),
         descripcion=reclamo.descripcion,
         direccion=reclamo.direccion,
-        latitud=punto.y,
-        longitud=punto.x,
+        latitud=latitud,
+        longitud=longitud,
         estado=reclamo.estado,
         cantidad_apoyos=reclamo.cantidad_apoyos,
         gravedad_promedio=reclamo.gravedad_promedio,

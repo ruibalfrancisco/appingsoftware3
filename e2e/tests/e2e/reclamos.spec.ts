@@ -4,7 +4,7 @@ import { vecinoConSesion } from './vecino'
 
 const FOTO = path.join(import.meta.dirname, '..', '..', 'fixtures', 'bache.jpg')
 
-// Sin key de Google en CI: la app usa el mapa simulado (ver ADR de Google Maps simulado).
+// En CI la app usa el mapa simulado (VITE_MAPA=simulado, ADR 0008); en local, el real.
 const CENTRO_VILLA_ALLENDE = { latitude: -31.2945, longitude: -64.2955 }
 const CORDOBA_CAPITAL = { latitude: -31.4167, longitude: -64.1833 }
 
@@ -41,7 +41,10 @@ test.describe('con GPS en Villa Allende', () => {
     await expect(resumen).toContainText('8 · Grave')
     await page.getByRole('button', { name: 'Enviar reclamo' }).click()
 
-    await expect(page.getByRole('heading', { name: '¡Reclamo enviado!' })).toBeVisible()
+    // Sube y procesa la foto: más margen que el de 5 s por defecto.
+    await expect(page.getByRole('heading', { name: '¡Reclamo enviado!' })).toBeVisible({
+      timeout: 15_000,
+    })
     expect(Date.now() - inicio).toBeLessThan(60_000)
 
     await page.getByRole('link', { name: 'Ver mi reclamo' }).click()
@@ -54,6 +57,36 @@ test.describe('con GPS en Villa Allende', () => {
     await expect
       .poll(() => foto.evaluate((img: HTMLImageElement) => img.naturalWidth))
       .toBe(1600)
+  })
+
+  test('Mis reclamos: lo cargado aparece con su ubicación, en la lista y en el mapa', async ({
+    page,
+    request,
+  }) => {
+    await vecinoConSesion(page, request)
+    await hastaLaUbicacion(page)
+    await page.getByRole('button', { name: 'Confirmar ubicación' }).click()
+    await page.getByLabel('Descripción').fill('Bache frente a la plaza')
+    await page.getByLabel('Dirección o referencia (opcional)').fill('San Martín 450')
+    await page.getByRole('button', { name: 'Revisar' }).click()
+    await page.getByRole('button', { name: 'Enviar reclamo' }).click()
+    // Sube y procesa la foto: más margen que el de 5 s por defecto.
+    await expect(page.getByRole('heading', { name: '¡Reclamo enviado!' })).toBeVisible({
+      timeout: 15_000,
+    })
+
+    await page.getByRole('link', { name: 'Volver al inicio' }).click()
+    await page.getByRole('link', { name: 'Mis reclamos' }).click()
+
+    const lista = page.getByRole('list', { name: 'Tus reclamos' })
+    await expect(lista.getByRole('listitem')).toHaveCount(1)
+    await expect(lista).toContainText('Bache')
+    await expect(lista).toContainText('San Martín 450')
+    await expect(lista).toContainText('Pendiente')
+    // El pin del mapa lleva al detalle, que también muestra dónde está.
+    await page.getByRole('button', { name: /^Reclamo #\d+: Bache$/ }).click()
+    await expect(page.getByRole('heading', { name: 'Bache', exact: true })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Ubicación' })).toContainText('San Martín 450')
   })
 })
 

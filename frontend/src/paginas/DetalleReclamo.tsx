@@ -1,20 +1,11 @@
+import { MapPin } from 'lucide-react'
 import { useParams } from 'react-router'
 import { Alerta, Pantalla } from '../componentes/ui'
 import { etiquetaGravedad } from '../dominio/gravedad'
 import { useReclamo } from '../reclamos/api'
-import IconoTipo from '../reclamos/IconoTipo'
 import { EstadoBadge } from '../reclamos/EstadoBadge'
-
-// RNF-14: fechas dd/mm/aaaa en la hora de Córdoba.
-const fecha = new Intl.DateTimeFormat('es-AR', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hourCycle: 'h23', // 00:12 y no 12:12 a. m.
-  timeZone: 'America/Argentina/Cordoba',
-})
+import { fechaYHora, textoDeUbicacion } from '../reclamos/formato'
+import MapaDeReclamos from '../reclamos/mapa/MapaDeReclamos'
 
 export default function DetalleReclamo() {
   const id = Number(useParams().id)
@@ -34,7 +25,11 @@ export default function DetalleReclamo() {
   const r = reclamo.data
   const fotoReporte = r.fotos.find((f) => f.tipo === 'reporte')
   return (
-    <Pantalla titulo={r.tipo.nombre} bajada={`Reclamo #${r.numero}`} volverA="/">
+    <Pantalla
+      titulo={r.tipo.nombre}
+      bajada={`Reclamo #${r.numero}`}
+      volverA={r.es_propio ? '/mis-reclamos' : '/'}
+    >
       {fotoReporte && (
         <img
           src={fotoReporte.url}
@@ -45,14 +40,26 @@ export default function DetalleReclamo() {
         />
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <span
-          className="inline-flex items-center gap-1 rounded-full bg-superficie px-3 py-1 text-[13px] font-semibold ring-1 ring-slate-200"
-          style={{ color: r.tipo.color }}
-        >
-          <IconoTipo icono={r.tipo.icono} className="size-4" /> {r.tipo.nombre}
-        </span>
         <EstadoBadge estado={r.estado} />
       </div>
+      {r.descripcion && <p className="text-[17px] whitespace-pre-line">{r.descripcion}</p>}
+
+      <section
+        aria-labelledby="titulo-ubicacion"
+        className="overflow-hidden rounded-tarjeta bg-superficie ring-1 ring-slate-200"
+      >
+        <MapaDeReclamos reclamos={[r]} className="h-44" />
+        <div className="flex items-start gap-2 p-4">
+          <MapPin aria-hidden className="mt-0.5 size-5 shrink-0 text-primario" />
+          <div>
+            <h2 id="titulo-ubicacion" className="text-[13px] text-texto-2">
+              Ubicación
+            </h2>
+            <p className="text-[15px] font-semibold">{textoDeUbicacion(r)}</p>
+          </div>
+        </div>
+      </section>
+
       <dl className="grid grid-cols-2 gap-3 rounded-tarjeta bg-superficie p-4 text-[15px] ring-1 ring-slate-200">
         <div>
           <dt className="text-[13px] text-texto-2">Apoyos</dt>
@@ -66,20 +73,8 @@ export default function DetalleReclamo() {
         </div>
         <div className="col-span-2">
           <dt className="text-[13px] text-texto-2">Cargado</dt>
-          <dd>{fecha.format(new Date(r.creado_en))}</dd>
+          <dd>{fechaYHora(r.creado_en)}</dd>
         </div>
-        {r.direccion && (
-          <div className="col-span-2">
-            <dt className="text-[13px] text-texto-2">Dirección</dt>
-            <dd>{r.direccion}</dd>
-          </div>
-        )}
-        {r.descripcion && (
-          <div className="col-span-2">
-            <dt className="text-[13px] text-texto-2">Descripción</dt>
-            <dd className="whitespace-pre-line">{r.descripcion}</dd>
-          </div>
-        )}
       </dl>
     </Pantalla>
   )

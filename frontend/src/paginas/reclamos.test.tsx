@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANA, renderizarEn, simularApi } from '../test/utilidades'
@@ -216,7 +216,7 @@ describe('Nuevo reclamo (CU-04)', () => {
 })
 
 describe('Detalle del reclamo', () => {
-  it('muestra foto, tipo, estado y fecha en formato argentino', async () => {
+  it('muestra foto, tipo, estado, ubicación en el mapa y fecha en formato argentino', async () => {
     simularApi({
       'GET /reclamos/7': () => ({
         status: 200,
@@ -246,7 +246,16 @@ describe('Detalle del reclamo', () => {
     expect(screen.getByText('8.0 · Grave')).toBeVisible()
     // RNF-14: dd/mm/aaaa y 24 h, en la hora de Córdoba (13:05 UTC = 10:05).
     expect(screen.getByText('23/11/2026, 10:05')).toBeVisible()
-    expect(screen.getByRole('img')).toHaveAttribute('src', 'https://fotos.example/a.jpg')
+    expect(screen.getByRole('img', { name: 'Foto del reclamo: Bache' })).toHaveAttribute(
+      'src',
+      'https://fotos.example/a.jpg',
+    )
+    const ubicacion = screen.getByRole('region', { name: 'Ubicación' })
+    expect(ubicacion).toHaveTextContent('San Martín 100')
+    expect(within(ubicacion).getByRole('img', { name: /Mapa con la ubicación/ })).toBeVisible()
+    expect(ubicacion).toHaveTextContent('-31.29000, -64.29000')
+    // Es propio: "Volver" lleva a la lista de sus reclamos.
+    expect(screen.getByRole('link', { name: '← Volver' })).toHaveAttribute('href', '/mis-reclamos')
   })
 
   it('reclamo inexistente', async () => {
@@ -276,5 +285,104 @@ describe('Dirección del pin (RF-10)', () => {
     expect(await screen.findByLabelText('Dirección o referencia (opcional)')).toHaveValue(
       'Rivera Indarte 101, Villa Allende Centro',
     )
+  })
+})
+
+describe('Mis reclamos', () => {
+  const MIOS = [
+    {
+      id: 9,
+      numero: 9,
+      tipo: TIPOS[1],
+      descripcion: 'Apagada hace una semana',
+      direccion: null,
+      latitud: -31.295,
+      longitud: -64.296,
+      estado: 'EN_PROCESO',
+      cantidad_apoyos: 3,
+      creado_en: '2026-11-24T02:30:00Z',
+      foto_url: 'https://fotos.example/b.jpg',
+    },
+    {
+      id: 7,
+      numero: 7,
+      tipo: TIPOS[0],
+      descripcion: 'Profundo',
+      direccion: 'San Martín 100, Villa Allende Centro',
+      latitud: -31.29,
+      longitud: -64.29,
+      estado: 'PENDIENTE',
+      cantidad_apoyos: 1,
+      creado_en: '2026-11-20T13:05:00Z',
+      foto_url: null,
+    },
+  ]
+
+  it('lista cada reclamo con su ubicación, estado y fecha, y los muestra en el mapa', async () => {
+    simularApi({
+      'GET /auth/yo': () => ({ status: 200, json: ANA }),
+      'GET /reclamos/mios': () => ({ status: 200, json: MIOS }),
+    })
+    renderizarEn('/mis-reclamos')
+
+    expect(await screen.findByRole('heading', { name: 'Mis reclamos' })).toBeVisible()
+    expect(await screen.findByText('Tenés 2 reclamos cargados.')).toBeVisible()
+    const [luminaria, bache] = within(
+      screen.getByRole('list', { name: 'Tus reclamos' }),
+    ).getAllByRole('listitem')
+    expect(luminaria).toHaveTextContent('Luminaria rota')
+    expect(luminaria).toHaveTextContent('-31.29500, -64.29600') // sin dirección: coordenadas
+    expect(luminaria).toHaveTextContent('En proceso')
+    expect(luminaria).toHaveTextContent('#9 · 23/11/2026') // el día de Córdoba
+    expect(bache).toHaveTextContent('San Martín 100, Villa Allende Centro')
+    expect(bache).toHaveTextContent('Pendiente')
+    expect(within(bache).getByRole('link')).toHaveAttribute('href', '/reclamos/7')
+    expect(screen.getByRole('button', { name: 'Reclamo #9: Luminaria rota' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Reclamo #7: Bache' })).toBeVisible()
+  })
+
+  it('tocar un pin del mapa abre ese reclamo', async () => {
+    simularApi({
+      'GET /auth/yo': () => ({ status: 200, json: ANA }),
+      'GET /reclamos/mios': () => ({ status: 200, json: MIOS }),
+    })
+    const { router } = renderizarEn('/mis-reclamos')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Reclamo #7: Bache' }))
+
+    expect(router.state.location.pathname).toBe('/reclamos/7')
+  })
+
+  it('sin reclamos invita a cargar el primero', async () => {
+    simularApi({
+      'GET /auth/yo': () => ({ status: 200, json: ANA }),
+      'GET /reclamos/mios': () => ({ status: 200, json: [] }),
+    })
+    renderizarEn('/mis-reclamos')
+
+    expect(await screen.findByText('Todavía no cargaste reclamos')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Nuevo reclamo' })).toHaveAttribute(
+      'href',
+      '/reclamos/nuevo',
+    )
+    expect(screen.queryByRole('list', { name: 'Tus reclamos' })).not.toBeInTheDocument()
+  })
+
+  it('si la API falla, lo dice', async () => {
+    simularApi({
+      'GET /auth/yo': () => ({ status: 200, json: ANA }),
+      'GET /reclamos/mios': () => ({ status: 500, json: { detail: 'Algo salió mal' } }),
+    })
+    renderizarEn('/mis-reclamos')
+
+    expect(await screen.findByRole('alert')).toBeVisible()
+  })
+
+  it('sin sesión manda a ingresar', async () => {
+    simularApi({ 'GET /auth/yo': () => ({ status: 401, json: { detail: 'Iniciá sesión' } }) })
+    const { router } = renderizarEn('/mis-reclamos')
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/ingresar'))
+    expect(await screen.findByText('Ingresá para ver tus reclamos.')).toBeVisible()
   })
 })

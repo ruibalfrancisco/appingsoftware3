@@ -1,11 +1,11 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, Navigate } from 'react-router'
 import { Alerta, BotonPrincipal } from '../componentes/ui'
 import { useSesion } from '../cuentas/api'
 import { etiquetaGravedad } from '../dominio/gravedad'
-import { crearReclamo, type Posicion, type TipoReclamo } from '../reclamos/api'
+import { CLAVE_MIS_RECLAMOS, crearReclamo, type Posicion, type TipoReclamo } from '../reclamos/api'
 import IconoTipo from '../reclamos/IconoTipo'
 import { DETALLES_INICIALES, type Detalles } from '../reclamos/detalles'
 import {
@@ -35,7 +35,12 @@ export default function NuevoReclamo() {
   const [foto, setFoto] = useState<FotoElegida>()
   const [posicion, setPosicion] = useState<Posicion>()
   const [detalles, setDetalles] = useState<Detalles>(DETALLES_INICIALES)
-  const envio = useMutation({ mutationFn: crearReclamo })
+  const clienteQuery = useQueryClient()
+  const envio = useMutation({
+    mutationFn: crearReclamo,
+    // "Mis reclamos" se vuelve a pedir para que aparezca el nuevo.
+    onSuccess: () => clienteQuery.invalidateQueries({ queryKey: CLAVE_MIS_RECLAMOS }),
+  })
 
   // Libera la memoria de la vista previa de la foto.
   useEffect(() => () => foto && URL.revokeObjectURL(foto.url), [foto])

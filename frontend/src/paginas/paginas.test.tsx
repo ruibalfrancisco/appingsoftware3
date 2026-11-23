@@ -28,6 +28,10 @@ describe('Inicio', () => {
     renderizarEn('/')
 
     expect(await screen.findByRole('heading', { name: 'Hola, Ana' })).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Mis reclamos' })).toHaveAttribute(
+      'href',
+      '/mis-reclamos',
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
     expect(await screen.findByRole('link', { name: 'Crear cuenta' })).toBeVisible()

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { ClipboardList, Plus } from 'lucide-react'
 import { Link } from 'react-router'
 import { obtenerSalud } from '../api'
 import { CLAVE_SESION, cuentas, useSesion } from '../cuentas/api'
@@ -77,6 +77,12 @@ export default function Inicio() {
         <div className="flex flex-col gap-3">
           <Link to="/reclamos/nuevo" className={`${claseBoton} gap-2 bg-primario text-white`}>
             <Plus aria-hidden className="size-5" strokeWidth={2.5} /> Nuevo reclamo
+          </Link>
+          <Link
+            to="/mis-reclamos"
+            className={`${claseBoton} gap-2 border border-primario text-primario`}
+          >
+            <ClipboardList aria-hidden className="size-5" /> Mis reclamos
           </Link>
           <button
             type="button"
