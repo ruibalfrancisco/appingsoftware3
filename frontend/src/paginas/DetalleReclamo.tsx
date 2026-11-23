@@ -12,6 +12,7 @@ const fecha = new Intl.DateTimeFormat('es-AR', {
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
+  hourCycle: 'h23', // 00:12 y no 12:12 a. m.
   timeZone: 'America/Argentina/Cordoba',
 })
 

@@ -227,7 +227,8 @@ describe('Detalle del reclamo', () => {
     expect(screen.getByText('Reclamo #7')).toBeVisible()
     expect(screen.getByText('Pendiente')).toBeVisible()
     expect(screen.getByText('8.0 · Grave')).toBeVisible()
-    expect(screen.getByText(/23\/11\/2026/)).toBeVisible() // 10:05 en Córdoba
+    // RNF-14: dd/mm/aaaa y 24 h, en la hora de Córdoba (13:05 UTC = 10:05).
+    expect(screen.getByText('23/11/2026, 10:05')).toBeVisible()
     expect(screen.getByRole('img')).toHaveAttribute('src', 'https://fotos.example/a.jpg')
   })
 
