@@ -33,6 +33,12 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
             item.add_marker(pytest.mark.skip(reason="Falta DATABASE_URL con PostGIS"))
 
 
+@pytest.fixture(autouse=True)
+def sin_openstreetmap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Las pruebas no consultan Nominatim; la que necesita una dirección la simula."""
+    monkeypatch.setattr("app.rutas.reclamos.direccion_de", lambda _lat, _lng: None)
+
+
 @pytest.fixture(scope="session")
 def url_base() -> str:
     return Settings().sqlalchemy_database_url

@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router'
 import DetalleReclamo from './paginas/DetalleReclamo'
 import Ingreso from './paginas/Ingreso'
 import Inicio from './paginas/Inicio'
+import MisReclamos from './paginas/MisReclamos'
 import NuevoReclamo from './paginas/NuevoReclamo'
 import Recuperar from './paginas/Recuperar'
 import Registro from './paginas/Registro'
@@ -19,6 +20,7 @@ export const rutas: RouteObject[] = [
   { path: '/recuperar', element: <Recuperar /> },
   { path: '/restablecer', element: <Restablecer /> },
   { path: '/reclamos/nuevo', element: <NuevoReclamo /> },
+  { path: '/mis-reclamos', element: <MisReclamos /> },
   { path: '/reclamos/:id', element: <DetalleReclamo /> },
   { path: '*', element: <Inicio /> },
 ]

@@ -1,4 +1,4 @@
-"""CU-04 Crear reclamo contra PostgreSQL + PostGIS real (IT-01, IT-05, IT-06, IT-09)."""
+"""CU-04 Crear reclamo y "Mis reclamos" contra PostgreSQL + PostGIS real (IT-01, 05, 06, 09)."""
 
 import contextlib
 import io
@@ -168,6 +168,35 @@ def test_rn09_sin_email_verificado_no_puede_reclamar(
 def test_sin_sesion_no_se_puede_reclamar_ni_ver(cliente_con_almacen: TestClient) -> None:
     assert reclamar(cliente_con_almacen).status_code == 401
     assert cliente_con_almacen.get("/reclamos/1").status_code == 401
+    assert cliente_con_almacen.get("/reclamos/mios").status_code == 401
+
+
+def test_mis_reclamos_lista_solo_los_propios_del_mas_nuevo_al_mas_viejo_con_su_ubicacion(
+    vecina: TestClient, base_limpia: Engine
+) -> None:
+    primero = reclamar(vecina, descripcion="El primero", direccion="San Martín 450").json()
+    segundo = reclamar(vecina, tipo_id=2, descripcion="El segundo", latitud=-31.2950).json()
+    crear_usuario(base_limpia, "30222333", "vecino@ejemplo.com")
+    ingresar(vecina, "30222333")  # otro vecino, en el mismo cliente
+    reclamar(vecina, descripcion="De otro vecino")
+    ingresar(vecina, "30111222")
+
+    mios = vecina.get("/reclamos/mios").json()
+
+    assert [r["numero"] for r in mios] == [segundo["numero"], primero["numero"]]
+    assert [r["descripcion"] for r in mios] == ["El segundo", "El primero"]
+    assert mios[0]["tipo"]["codigo"] == "luminaria"
+    assert mios[0]["latitud"] == pytest.approx(-31.2950)
+    assert mios[0]["direccion"] is None
+    assert mios[1]["direccion"] == "San Martín 450"
+    assert mios[1]["longitud"] == pytest.approx(CENTRO["longitud"])
+    assert all(r["foto_url"].startswith("https://fotos.example/reclamos/") for r in mios)
+    assert all(r["estado"] == "PENDIENTE" and r["cantidad_apoyos"] == 1 for r in mios)
+    assert "30111222" not in str(mios)  # RNF-08
+
+
+def test_mis_reclamos_sin_reclamos_es_una_lista_vacia(vecina: TestClient) -> None:
+    assert vecina.get("/reclamos/mios").json() == []
 
 
 def test_reclamo_inexistente_responde_404(vecina: TestClient) -> None:
@@ -206,6 +235,18 @@ def test_rf10_direccion_del_pin_solo_con_sesion(
     assert respuesta.status_code == 200
     assert respuesta.json() == {"direccion": "Calle falsa -31.29,-64.30"}
     assert vecina.get("/direccion", params={"latitud": 200, "longitud": 0}).status_code == 422
+
+
+def test_rf10_sin_direccion_escrita_el_reclamo_guarda_la_del_pin(
+    vecina: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("app.rutas.reclamos.direccion_de", lambda _lat, _lng: "Saavedra 206")
+
+    sin_escribir = reclamar(vecina).json()["numero"]
+    escrita = reclamar(vecina, direccion="Frente a la plaza").json()["numero"]
+
+    assert vecina.get(f"/reclamos/{sin_escribir}").json()["direccion"] == "Saavedra 206"
+    assert vecina.get(f"/reclamos/{escrita}").json()["direccion"] == "Frente a la plaza"
 
 
 def test_rf10_direccion_sin_sesion_responde_401(cliente_con_almacen: TestClient) -> None:

@@ -98,6 +98,22 @@ class FotoPublica(BaseModel):
     alto: int
 
 
+class ReclamoResumen(BaseModel):
+    """Una fila de "Mis reclamos": lo justo para reconocerlo y ubicarlo en el mapa."""
+
+    id: int
+    numero: int
+    tipo: TipoPublico
+    descripcion: str
+    direccion: str | None
+    latitud: float
+    longitud: float
+    estado: str
+    cantidad_apoyos: int
+    creado_en: datetime
+    foto_url: str | None
+
+
 class ReclamoDetalle(BaseModel):
     """Lo que cualquier vecino puede ver de un reclamo: nunca DNI ni email (RNF-08)."""
 

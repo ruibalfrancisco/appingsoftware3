@@ -1,18 +1,9 @@
-import 'maplibre-gl/dist/maplibre-gl.css'
-import { setWorkerUrl } from 'maplibre-gl'
-import urlDelWorker from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useMemo, useState } from 'react'
 import Map, { Layer, NavigationControl, Source, useMap } from 'react-map-gl/maplibre'
 import type { PropsMapa } from './MapaSelector'
 import BotonUbicarme from './BotonUbicarme'
+import { ESTILO, TEXTOS } from './maplibre'
 import PinCentral from './PinCentral'
-
-// MapLibre dibuja las calles en un worker. Arma su ruta en tiempo de ejecución, así que Vite no
-// lo detecta solo: sin esto, en el build el mapa se ve vacío (solo el fondo, sin calles).
-setWorkerUrl(urlDelWorker)
-
-// Mapa vectorial de OpenStreetMap servido por OpenFreeMap: gratis, sin key y sin límites de uso.
-const ESTILO = 'https://tiles.openfreemap.org/styles/liberty'
 
 // Un rectángulo que cubre el mundo; con el ejido como "agujero" oscurece todo lo de afuera.
 const MUNDO = [
@@ -62,6 +53,7 @@ export default function MapaOSM({ centro, onCambio, ejido, dentro, onUbicarme }:
       <Map
         initialViewState={{ longitude: centro.longitud, latitude: centro.latitud, zoom: 17 }}
         mapStyle={ESTILO}
+        locale={TEXTOS}
         style={{ width: '100%', height: '100%' }}
         attributionControl={{ compact: true }}
         dragRotate={false}
