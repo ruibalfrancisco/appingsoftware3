@@ -188,6 +188,13 @@ jobs:
         ports:
           - 1025:1025
           - 8025:8025
+      fotos:
+        image: rustfs/rustfs:1.0.6
+        env:
+          RUSTFS_ACCESS_KEY: reclamos
+          RUSTFS_SECRET_KEY: reclamos-local
+        ports:
+          - 9000:9000
     env:
       DATABASE_URL: postgresql://reclamos:reclamos@localhost:5432/reclamos
       EMAIL_BACKEND: smtp
@@ -197,6 +204,12 @@ jobs:
       WEB_URL: http://localhost:4173
       API_URL: http://localhost:8000
       MAILPIT_URL: http://localhost:8025
+      AWS_ENDPOINT_URL: http://127.0.0.1:9000
+      AWS_ACCESS_KEY_ID: reclamos
+      AWS_SECRET_ACCESS_KEY: reclamos-local
+      AWS_S3_BUCKET_NAME: fotos
+      # Sin key de Google: la web usa el mapa simulado (no gasta cuota ni depende de la red).
+      VITE_GOOGLE_MAPS_API_KEY: ''
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.4.0
@@ -217,6 +230,11 @@ jobs:
         run: |
           uv sync --locked
           uv run alembic upgrade head
+          # Bucket de fotos en RustFS (reintenta mientras el servicio termina de arrancar).
+          for i in $(seq 1 20); do
+            uv run python -c "from app.almacenamiento import AlmacenS3; from app.config import Settings; s = Settings(); AlmacenS3(s).cliente.create_bucket(Bucket=s.aws_s3_bucket_name)" && break
+            sleep 1
+          done
           nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &
       - name: Levantar la web (build de producción con proxy /api)
         working-directory: frontend

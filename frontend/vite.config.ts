@@ -27,7 +27,14 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/main.tsx', 'src/test/**', 'src/**/*.test.{ts,tsx}', 'src/vite-env.d.ts'],
+      // MapaGoogle solo se carga con key de Google: se verifica en el smoke contra staging.
+      exclude: [
+        'src/main.tsx',
+        'src/test/**',
+        'src/**/*.test.{ts,tsx}',
+        'src/vite-env.d.ts',
+        'src/reclamos/mapa/MapaGoogle.tsx',
+      ],
       // RNF-10: 70 % de cobertura en el frontend; por debajo, el CI falla.
       thresholds: { lines: 70, functions: 70, branches: 70, statements: 70 },
       reporter: ['text', 'html', 'lcov'],

@@ -15,7 +15,8 @@ export function simularApi(manejadores: Record<string, Manejador>) {
     const ruta = url.replace(/^\/api/, '').split('?')[0]
     const clave = `${init?.method ?? 'GET'} ${ruta}`
     const manejador = manejadores[clave]
-    const cuerpo = init?.body ? JSON.parse(String(init.body)) : undefined
+    // Solo se lee JSON; un FormData (multipart) se pasa tal cual.
+    const cuerpo = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body
     const { status, json } = manejador ? manejador(cuerpo) : { status: 404, json: {} }
     return new Response(status === 204 ? null : JSON.stringify(json ?? {}), { status })
   })
