@@ -14,6 +14,16 @@ const proxyApi = {
   },
 }
 
+// En GitHub Actions, además de la salida de siempre: anotaciones en el código y un JUnit XML
+// que el pipeline publica como informe de pruebas. En la compu quedan los reporters por defecto.
+const informesDelCI =
+  process.env.GITHUB_ACTIONS === 'true'
+    ? {
+        reporters: ['default', 'github-actions', 'junit'],
+        outputFile: { junit: 'reportes/unitarias.xml' },
+      }
+    : {}
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -26,6 +36,7 @@ export default defineConfig({
     environment: 'jsdom',
     env: { VITE_MAPA: 'simulado' },
     setupFiles: ['./src/test/setup.ts'],
+    ...informesDelCI,
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
@@ -42,7 +53,8 @@ export default defineConfig({
       ],
       // RNF-10: 70 % de cobertura en el frontend; por debajo, el CI falla.
       thresholds: { lines: 70, functions: 70, branches: 70, statements: 70 },
-      reporter: ['text', 'html', 'lcov'],
+      // json-summary: el CI arma con él la tabla de cobertura del resumen de la corrida.
+      reporter: ['text', 'html', 'lcov', 'json-summary'],
     },
   },
 })

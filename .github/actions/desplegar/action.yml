@@ -96,6 +96,7 @@ runs:
         WEB_URL: ${{ inputs.web-url }}
         API_URL: ${{ inputs.api-url }}
         EXPECTED_COMMIT: ${{ github.sha }}
+        INFORME: smoke-${{ inputs.ambiente }}
       run: |
         npm ci --no-audit --no-fund
         npx playwright install --with-deps chromium
