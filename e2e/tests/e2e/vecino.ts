@@ -45,7 +45,14 @@ export async function otroVecinoReclama(
   const enlace = await enlaceDelEmail(api, vecino.email, /Confirmá tu email/, '/verificar')
   const token = new URL(enlace).searchParams.get('token')
   expect((await api.post('/api/auth/verificar', { data: { token } })).ok()).toBe(true)
+  return reclamarPorApi(api, reclamo)
+}
 
+/** Carga un bache por la API con la sesión que tenga `api` (va directo, sin el asistente). */
+export async function reclamarPorApi(
+  api: APIRequestContext,
+  reclamo: { latitud: number; longitud: number; gravedad: number; descripcion: string },
+): Promise<number> {
   const respuesta = await api.post('/api/reclamos', {
     multipart: {
       tipo_id: '1', // Bache

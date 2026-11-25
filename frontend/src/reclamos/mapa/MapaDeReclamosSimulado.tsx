@@ -1,4 +1,4 @@
-import { nombreDelPin, type PropsMapaDeReclamos, type ReclamoEnElMapa } from './pines'
+import { colorDelTipo, nombreDelPin, type PropsMapaDeReclamos, type ReclamoEnElMapa } from './pines'
 import PinDeReclamo from './PinDeReclamo'
 
 /** Posición de 10 % a 90 % dentro de la caja que contiene a todos los reclamos. */
@@ -21,11 +21,16 @@ function posicion(reclamo: ReclamoEnElMapa, todos: ReclamoEnElMapa[]) {
   return { left: `${10 + x * 80}%`, top: `${10 + y * 80}%` }
 }
 
-/** Reemplazo del mapa de reclamos en CI y en las pruebas (VITE_MAPA=simulado). */
+/**
+ * Reemplazo del mapa de reclamos en CI y en las pruebas (VITE_MAPA=simulado): mismos pines y
+ * colores, sin red. No agrupa: eso lo hace MapLibre en el mapa real.
+ */
 export default function MapaDeReclamosSimulado({
   reclamos,
   onElegir,
   className,
+  colorDe = colorDelTipo,
+  seleccionado,
 }: PropsMapaDeReclamos) {
   const unico = reclamos.length === 1 ? reclamos[0] : undefined
   return (
@@ -44,13 +49,18 @@ export default function MapaDeReclamosSimulado({
             <button
               type="button"
               aria-label={nombreDelPin(reclamo)}
+              aria-pressed={seleccionado === undefined ? undefined : reclamo.id === seleccionado}
               onClick={() => onElegir(reclamo.id)}
               className="block"
             >
-              <PinDeReclamo color={reclamo.tipo.color} icono={reclamo.tipo.icono} />
+              <PinDeReclamo
+                color={colorDe(reclamo)}
+                icono={reclamo.tipo.icono}
+                destacado={reclamo.id === seleccionado}
+              />
             </button>
           ) : (
-            <PinDeReclamo color={reclamo.tipo.color} icono={reclamo.tipo.icono} />
+            <PinDeReclamo color={colorDe(reclamo)} icono={reclamo.tipo.icono} />
           )}
         </div>
       ))}

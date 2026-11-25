@@ -80,6 +80,9 @@ uv run python -m app.municipales --dni 20111222 --desactivar
 
 Al ingresar, el personal municipal va al Tablero; un vecino que intente usar `/gestion` recibe 403.
 
+Los E2E del back office (E2E-04) ingresan como la operadora de prueba: en local, creala una vez
+con `$env:CLAVE_INICIAL="clave-de-prueba-1"` y `--dni 20999888` (el CI la crea solo).
+
 ## Pruebas
 
 | Qué | Comando |

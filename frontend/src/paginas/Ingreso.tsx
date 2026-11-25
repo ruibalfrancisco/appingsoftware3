@@ -28,7 +28,8 @@ export default function Ingreso() {
     mutationFn: cuentas.ingresar,
     onSuccess: (usuario) => {
       clienteQuery.setQueryData(CLAVE_SESION, usuario)
-      navegar('/', { replace: true })
+      // CU-03: el vecino va al Inicio y el personal municipal, al Tablero (RF-24).
+      navegar(usuario.rol === 'vecino' ? '/' : '/tablero', { replace: true })
     },
     onError: (error) => {
       setSinVerificar(error instanceof ErrorDeApi && error.status === 403)

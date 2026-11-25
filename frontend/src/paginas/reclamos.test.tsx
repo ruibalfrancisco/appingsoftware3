@@ -217,7 +217,64 @@ describe('Nuevo reclamo (CU-04)', () => {
   })
 })
 
+const CARGADO = {
+  estado_anterior: null,
+  estado_nuevo: 'PENDIENTE',
+  comentario: null,
+  creado_en: '2026-11-23T13:05:00Z',
+}
+
 describe('Detalle del reclamo', () => {
+  it('RF-22: resuelto muestra el área, la foto del después y el comentario', async () => {
+    simularApi({
+      'GET /reclamos/8': () => ({
+        status: 200,
+        json: {
+          id: 8,
+          numero: 8,
+          tipo: TIPOS[0],
+          descripcion: 'Profundo',
+          direccion: null,
+          latitud: -31.29,
+          longitud: -64.29,
+          estado: 'RESUELTO',
+          cantidad_apoyos: 3,
+          gravedad_promedio: 7,
+          prioridad: 18,
+          creado_en: '2026-11-20T13:05:00Z',
+          fotos: [
+            { tipo: 'reporte', url: 'https://fotos.example/a.jpg', ancho: 1600, alto: 1200 },
+            { tipo: 'resolucion', url: 'https://fotos.example/b.jpg', ancho: 1600, alto: 1200 },
+          ],
+          area: 'Obras Públicas',
+          historial: [
+            CARGADO,
+            {
+              estado_anterior: 'EN_PROCESO',
+              estado_nuevo: 'RESUELTO',
+              comentario: 'Bacheado y señalizado',
+              creado_en: '2026-11-24T18:00:00Z',
+            },
+          ],
+          es_propio: false,
+        },
+      }),
+    })
+    renderizarEn('/reclamos/8')
+
+    expect(await screen.findByText('Resuelto')).toBeVisible()
+    expect(screen.getByText('Área responsable').parentElement).toHaveTextContent('Obras Públicas')
+    expect(screen.getByRole('img', { name: /Así quedó/ })).toHaveAttribute(
+      'src',
+      'https://fotos.example/b.jpg',
+    )
+    const seguimiento = screen.getByRole('region', { name: 'Seguimiento' })
+    expect(seguimiento).toHaveTextContent('Pasó a Resuelto')
+    expect(seguimiento).toHaveTextContent('Bacheado y señalizado')
+    expect(seguimiento).toHaveTextContent('24/11/2026, 15:00')
+    expect(screen.getByRole('link', { name: '← Volver' })).toHaveAttribute('href', '/')
+  })
+
   it('muestra foto, tipo, estado, ubicación en el mapa y fecha en formato argentino', async () => {
     simularApi({
       'GET /reclamos/7': () => ({
@@ -236,6 +293,8 @@ describe('Detalle del reclamo', () => {
           prioridad: 8,
           creado_en: '2026-11-23T13:05:00Z',
           fotos: [{ tipo: 'reporte', url: 'https://fotos.example/a.jpg', ancho: 1600, alto: 1200 }],
+          area: null,
+          historial: [CARGADO],
           es_propio: true,
         },
       }),
@@ -247,7 +306,8 @@ describe('Detalle del reclamo', () => {
     expect(screen.getByText('Pendiente')).toBeVisible()
     expect(screen.getByText('8.0 · Grave')).toBeVisible()
     // RNF-14: dd/mm/aaaa y 24 h, en la hora de Córdoba (13:05 UTC = 10:05).
-    expect(screen.getByText('23/11/2026, 10:05')).toBeVisible()
+    expect(screen.getByText('Cargado').parentElement).toHaveTextContent('23/11/2026, 10:05')
+    expect(screen.getByRole('region', { name: 'Seguimiento' })).toHaveTextContent('Reclamo cargado')
     expect(screen.getByRole('img', { name: 'Foto del reclamo: Bache' })).toHaveAttribute(
       'src',
       'https://fotos.example/a.jpg',

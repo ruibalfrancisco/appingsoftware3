@@ -34,3 +34,17 @@ export function textoDeUbicacion(reclamo: {
 }): string {
   return reclamo.direccion ?? `${reclamo.latitud.toFixed(5)}, ${reclamo.longitud.toFixed(5)}`
 }
+
+const relativo = new Intl.RelativeTimeFormat('es-AR', { numeric: 'auto' })
+
+/** "hace 5 minutos", "ayer", "hace 3 días": la antigüedad de un reclamo en el Tablero. */
+export function hace(iso: string, ahora: Date = new Date()): string {
+  const segundos = Math.round((new Date(iso).getTime() - ahora.getTime()) / 1000)
+  const minutos = Math.round(segundos / 60)
+  const horas = Math.round(minutos / 60)
+  const dias = Math.round(horas / 24)
+  if (Math.abs(minutos) < 1) return 'recién'
+  if (Math.abs(horas) < 1) return relativo.format(minutos, 'minute')
+  if (Math.abs(dias) < 1) return relativo.format(horas, 'hour')
+  return relativo.format(dias, 'day')
+}
