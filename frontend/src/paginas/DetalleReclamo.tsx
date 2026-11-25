@@ -5,6 +5,7 @@ import { etiquetaGravedad } from '../dominio/gravedad'
 import { useReclamo } from '../reclamos/api'
 import { EstadoBadge } from '../reclamos/EstadoBadge'
 import { fechaYHora, textoDeUbicacion } from '../reclamos/formato'
+import Historial from '../reclamos/Historial'
 import MapaDeReclamos from '../reclamos/mapa/MapaDeReclamos'
 
 export default function DetalleReclamo() {
@@ -24,6 +25,7 @@ export default function DetalleReclamo() {
 
   const r = reclamo.data
   const fotoReporte = r.fotos.find((f) => f.tipo === 'reporte')
+  const fotoDespues = r.fotos.find((f) => f.tipo === 'resolucion')
   return (
     <Pantalla
       titulo={r.tipo.nombre}
@@ -75,7 +77,36 @@ export default function DetalleReclamo() {
           <dt className="text-[13px] text-texto-2">Cargado</dt>
           <dd>{fechaYHora(r.creado_en)}</dd>
         </div>
+        {r.area && (
+          <div className="col-span-2">
+            <dt className="text-[13px] text-texto-2">Área responsable</dt>
+            <dd className="font-semibold">{r.area}</dd>
+          </div>
+        )}
       </dl>
+
+      {/* RF-22: lo que hizo la Municipalidad, con la foto del después si la hay. */}
+      {fotoDespues && (
+        <figure className="flex flex-col gap-2">
+          <img
+            src={fotoDespues.url}
+            alt="Así quedó: foto de la Municipalidad"
+            width={fotoDespues.ancho}
+            height={fotoDespues.alto}
+            className="h-auto w-full rounded-tarjeta object-cover"
+          />
+          <figcaption className="text-[13px] text-texto-2">Así quedó</figcaption>
+        </figure>
+      )}
+      <section
+        aria-labelledby="titulo-seguimiento"
+        className="rounded-tarjeta bg-superficie p-4 ring-1 ring-slate-200"
+      >
+        <h2 id="titulo-seguimiento" className="mb-3 font-display text-[17px] font-semibold">
+          Seguimiento
+        </h2>
+        <Historial entradas={r.historial} />
+      </section>
     </Pantalla>
   )
 }

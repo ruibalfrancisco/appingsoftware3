@@ -81,3 +81,20 @@ export async function pedir<T>(ruta: string, opciones: OpcionesDePedido = {}): P
 export function obtenerSalud(signal?: AbortSignal): Promise<Salud> {
   return pedir<Salud>('/health', { signal })
 }
+
+/** POST multipart (formulario con foto). Sin Content-Type: el navegador arma el boundary. */
+export async function enviarFormulario<T>(ruta: string, formulario: FormData): Promise<T> {
+  let respuesta: Response
+  try {
+    respuesta = await fetch(`${API_BASE}${ruta}`, {
+      method: 'POST',
+      body: formulario,
+      credentials: 'same-origin',
+    })
+  } catch {
+    throw new ErrorDeApi(0, SIN_CONEXION)
+  }
+  const cuerpo: unknown = await respuesta.json().catch(() => null)
+  if (!respuesta.ok) throw errorDesdeRespuesta(respuesta.status, cuerpo)
+  return cuerpo as T
+}

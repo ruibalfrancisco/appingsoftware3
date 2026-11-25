@@ -211,6 +211,9 @@ jobs:
       # Mapa simulado y sin búsqueda de direcciones: los E2E no dependen de servicios externos.
       VITE_MAPA: simulado
       GEOCODIFICAR: 'false'
+      # Operadora del back office para E2E-04 (solo existe en esta base efímera del CI).
+      OPERADOR_DNI: '20999888'
+      OPERADOR_CLAVE: clave-de-operadora-1
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.4.0
@@ -231,6 +234,9 @@ jobs:
         run: |
           uv sync --locked
           uv run alembic upgrade head
+          # Personal municipal para el back office (CU-10 se carga con este script).
+          CLAVE_INICIAL="$OPERADOR_CLAVE" uv run python -m app.municipales --dni "$OPERADOR_DNI" \
+            --nombre Olga --apellido Operadora --email operadora@villaallende.gob.ar --rol operador
           # Bucket de fotos en RustFS (reintenta mientras el servicio termina de arrancar).
           for i in $(seq 1 20); do
             uv run python -c "from app.almacenamiento import AlmacenS3; from app.config import Settings; s = Settings(); AlmacenS3(s).cliente.create_bucket(Bucket=s.aws_s3_bucket_name)" && break

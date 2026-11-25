@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { API_BASE, ErrorDeApi, errorDesdeRespuesta, pedir, SIN_CONEXION } from '../api'
+import { enviarFormulario, pedir } from '../api'
 import { useValorEstable } from '../hooks'
 
 export interface TipoReclamo {
@@ -22,6 +22,22 @@ export interface Ejido {
   centro: Posicion
 }
 
+export interface Foto {
+  tipo: 'reporte' | 'resolucion'
+  url: string
+  ancho: number
+  alto: number
+}
+
+/** Un cambio de estado; `autor` solo viene en el back office. */
+export interface EntradaDeHistorial {
+  estado_anterior: string | null
+  estado_nuevo: string
+  comentario: string | null
+  creado_en: string
+  autor?: string
+}
+
 export interface ReclamoCreado {
   id: number
   numero: number
@@ -42,7 +58,9 @@ export interface ReclamoDetalle {
   gravedad_promedio: number
   prioridad: number
   creado_en: string
-  fotos: { tipo: string; url: string; ancho: number; alto: number }[]
+  fotos: Foto[]
+  area: string | null
+  historial: EntradaDeHistorial[]
   es_propio: boolean
 }
 
@@ -150,21 +168,7 @@ export async function crearReclamo(datos: NuevoReclamo): Promise<ReclamoCreado> 
   formulario.append('latitud', String(datos.latitud))
   formulario.append('longitud', String(datos.longitud))
   formulario.append('foto', datos.foto, 'foto.jpg')
-
-  let respuesta: Response
-  try {
-    // Sin Content-Type: el navegador arma el boundary del multipart.
-    respuesta = await fetch(`${API_BASE}/reclamos`, {
-      method: 'POST',
-      body: formulario,
-      credentials: 'same-origin',
-    })
-  } catch {
-    throw new ErrorDeApi(0, SIN_CONEXION)
-  }
-  const cuerpo: unknown = await respuesta.json().catch(() => null)
-  if (!respuesta.ok) throw errorDesdeRespuesta(respuesta.status, cuerpo)
-  return cuerpo as ReclamoCreado
+  return enviarFormulario<ReclamoCreado>('/reclamos', formulario)
 }
 
 /**
