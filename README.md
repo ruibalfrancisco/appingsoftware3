@@ -10,7 +10,7 @@ entrega y despliegue continuo.
 ```
 frontend/   React 19 + Vite + TypeScript + Tailwind (servicio "web" en Railway)
 backend/    FastAPI + SQLAlchemy + Alembic, Python 3.12 con uv (servicio "api")
-e2e/        Playwright: smoke test después de cada despliegue (y los E2E más adelante)
+e2e/        Playwright: E2E en el CI, smoke e integración en QA después de cada despliegue
 infra/      docker-compose con PostGIS, RustFS (S3) y Mailpit para desarrollo local
 .railway/   Infraestructura de Railway como código (servicios, base, regiones, healthchecks)
 docs/adr/   Decisiones de arquitectura con alternativas descartadas
@@ -20,14 +20,21 @@ docs/adr/   Decisiones de arquitectura con alternativas descartadas
 ## Pipeline
 
 ```
-PR ──► ci.yml: lint-y-tipos · unitarias · integracion · imagenes · seguridad ──► merge a main
-main ──► deploy.yml: ci ──► staging (Railway) + smoke ──► aprobación manual ──► production + smoke ──► tag vX.Y.Z
+PR ──► ci.yml: lint-y-tipos + unitarias ──► integracion · e2e · imagenes (build) ──► merge a main
+                seguridad (en paralelo)
+main ──► deploy.yml: ci ──► QA (staging en Railway): smoke + pruebas de integración
+                        ──► aprobación manual ──► producción + smoke ──► tag vX.Y.Z
 ```
 
-- **ci.yml** corre en cada pull request; sus jobs son los checks obligatorios de `main`.
-- **deploy.yml** corre en cada push a `main`: repite el CI sobre el commit exacto, despliega a
-  staging con el CLI de Railway, espera que `/health` informe ese commit, corre el smoke test y
-  queda esperando aprobación en el ambiente `production` de GitHub.
+- **ci.yml** corre en cada pull request; sus jobs son los checks obligatorios de `main`. Si fallan
+  las unitarias o el lint, el build de las imágenes y las demás pruebas no corren.
+- **deploy.yml** corre en cada push a `main`: repite el CI sobre el commit exacto, despliega a QA
+  (el ambiente `staging`) con el CLI de Railway, espera que `/health` informe ese commit, corre
+  el smoke test y las pruebas de integración contra QA, y queda esperando aprobación en el
+  ambiente `production` de GitHub.
+- Cada etapa publica su **informe de pruebas** (JUnit XML): aparece como un check más
+  ("Informe · pruebas unitarias", "Informe · QA (smoke + integración)", etc.) y como tabla en el
+  resumen de la corrida. Los informes HTML y de cobertura quedan como artefactos de la corrida.
 - La versión vive en `VERSION`. Después del smoke de producción se crea el tag `v<VERSION>`;
   para publicar una versión nueva, se sube `VERSION` en el PR.
 
@@ -94,13 +101,15 @@ con `$env:CLAVE_INICIAL="clave-de-prueba-1"` y `--dni 20999888` (el CI la crea s
 | Frontend: unitarias con cobertura | `cd frontend && npm run test:cov` |
 | E2E (con la API y `npm run dev` corriendo) | `cd e2e && npx playwright install chromium` (una vez) y `$env:WEB_URL="http://localhost:5173"; npx playwright test --project=e2e` |
 | Smoke contra un ambiente | `cd e2e && $env:WEB_URL="..."; $env:API_URL="..."; npm run smoke` |
+| Integración en QA (o contra la app local) | `cd e2e && $env:WEB_URL="..."; $env:QA_USUARIO_DNI="..."; $env:QA_USUARIO_CLAVE="..."; npx playwright test --project=qa` |
 
 Las pruebas de integración vacían la base antes de cada prueba: por eso usan `reclamos_pruebas`
 y no la base con la que probás la app. Se crea una sola vez con
 `docker compose -f infra/docker-compose.yml exec db createdb -U reclamos reclamos_pruebas`.
 
 Cada prueba lleva el ID del documento de requerimientos (UT-xx, IT-xx, E2E-xx) para trazar
-qué regla de negocio cubre.
+qué regla de negocio cubre. Las pruebas de integración en QA (QA-xx) usan una cuenta de personal
+municipal que existe solo en ese ambiente; sin las variables, van contra la operadora local.
 
 ## Ramas y commits
 

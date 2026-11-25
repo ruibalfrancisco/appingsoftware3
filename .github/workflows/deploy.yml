@@ -1,5 +1,6 @@
-# Entrega continua: cada push a main pasa por CI, se despliega a staging con smoke test y
-# queda esperando aprobación manual para producción (ambiente "production" de GitHub).
+# Entrega continua: cada push a main (un PR aprobado y mergeado) pasa por CI, se despliega a QA
+# (el ambiente "staging") con smoke test y pruebas de integración, y queda esperando la
+# aprobación manual para producción (ambiente "production" de GitHub).
 name: deploy
 
 on:
@@ -20,8 +21,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      checks: write # los informes de pruebas
 
   staging:
+    name: QA (staging)
     needs: ci
     # Hasta que Railway esté configurado (sección 6 de la guía), el despliegue se saltea.
     if: vars.RAILWAY_PROJECT_ID != ''
@@ -33,6 +36,9 @@ jobs:
     environment:
       name: staging
       url: ${{ vars.WEB_URL }}
+    permissions:
+      contents: read
+      checks: write # el informe de pruebas de QA
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
@@ -44,7 +50,38 @@ jobs:
           web-url: ${{ vars.WEB_URL }}
           api-url: ${{ vars.API_URL }}
 
+      # Con la versión nueva ya publicada en QA: recorridos contra la web, la API, la base y el
+      # bucket de ese ambiente, con una cuenta de prueba que solo existe en QA.
+      - name: Pruebas de integración en QA
+        working-directory: e2e
+        env:
+          WEB_URL: ${{ vars.WEB_URL }}
+          EXPECTED_COMMIT: ${{ github.sha }}
+          QA_USUARIO_DNI: ${{ vars.QA_USUARIO_DNI }}
+          QA_USUARIO_CLAVE: ${{ secrets.QA_USUARIO_CLAVE }}
+          INFORME: integracion-qa
+        run: npx playwright test --project=qa
+
+      - name: Publicar el informe de QA
+        if: ${{ !cancelled() }}
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2.26.0
+        with:
+          check_name: Informe · QA (smoke + integración)
+          files: e2e/reportes/*.xml
+          comment_mode: off
+      - name: Guardar el informe HTML
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: informe-qa
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 30
+
   production:
+    name: Producción
     needs: staging
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -59,6 +96,7 @@ jobs:
       url: ${{ vars.WEB_URL }}
     permissions:
       contents: write # para crear el tag de versión
+      checks: write # el informe del smoke test
     env:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
@@ -69,6 +107,13 @@ jobs:
           proyecto: ${{ vars.RAILWAY_PROJECT_ID }}
           web-url: ${{ vars.WEB_URL }}
           api-url: ${{ vars.API_URL }}
+      - name: Publicar el informe del smoke test
+        if: ${{ !cancelled() }}
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2.26.0
+        with:
+          check_name: Informe · producción (smoke)
+          files: e2e/reportes/*.xml
+          comment_mode: off
 
       - name: Etiquetar la versión (SemVer desde el archivo VERSION)
         run: |

@@ -72,6 +72,9 @@ jobs:
     name: unitarias
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: write # para publicar el informe de pruebas
     steps:
       - uses: actions/checkout@v7
 
@@ -84,43 +87,81 @@ jobs:
         working-directory: backend
         run: |
           uv sync --locked
-          uv run python -m pytest -m "not integracion" --cov=app --cov-report=term-missing --cov-report=xml
+          uv run python -m pytest -m "not integracion" --junitxml=reportes/unitarias.xml \
+            -o junit_suite_name=backend --cov=app --cov-report=term-missing --cov-report=xml
       - name: Backend · umbral de 80 % en el dominio (RNF-10)
         working-directory: backend
         run: |
           {
-            echo '### Cobertura del dominio (backend)'
+            echo '### Cobertura del dominio del backend (reglas de negocio, umbral 80 %)'
             echo '```'
             uv run python -m coverage report --include='app/dominio/*'
             echo '```'
+            echo "En todo el backend, las unitarias cubren $(uv run python -m coverage report --format=total) %;"
+            echo 'las rutas y el acceso a la base los cubren las pruebas de integración (job integracion).'
           } >> "$GITHUB_STEP_SUMMARY"
           uv run python -m coverage report --include='app/dominio/*' --fail-under=80
 
+      # Aunque fallen las del backend, las del frontend corren igual: el informe muestra todo.
       - uses: actions/setup-node@v7
+        if: ${{ !cancelled() }}
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Frontend · pruebas unitarias con cobertura (umbral 70 %)
+        if: ${{ !cancelled() }}
         working-directory: frontend
         run: |
           npm ci --no-audit --no-fund
           npm run test:cov
+      - name: Frontend · cobertura en el resumen
+        if: ${{ !cancelled() && hashFiles('frontend/coverage/coverage-summary.json') != '' }}
+        working-directory: frontend
+        run: |
+          node -e '
+            const t = JSON.parse(require("fs").readFileSync("coverage/coverage-summary.json")).total
+            const p = (k) => `${t[k].pct} %`
+            console.log("### Cobertura del frontend (umbral 70 %)\n")
+            console.log("| Líneas | Sentencias | Funciones | Ramas |\n|---|---|---|---|")
+            console.log(`| ${p("lines")} | ${p("statements")} | ${p("functions")} | ${p("branches")} |`)
+          ' >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Guardar reportes de cobertura
-        if: always()
+      # El informe aparece como un check más ("Informe · pruebas unitarias") con cada prueba,
+      # y como tabla en el resumen de la corrida. Equivale a PublishTestResults de Azure DevOps.
+      - name: Publicar el informe de pruebas unitarias
+        if: ${{ !cancelled() }}
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2.26.0
+        with:
+          check_name: Informe · pruebas unitarias
+          files: |
+            backend/reportes/*.xml
+            frontend/reportes/*.xml
+          comment_mode: off
+
+      - name: Guardar informes y cobertura (HTML)
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: cobertura
+          name: informe-unitarias
           path: |
+            backend/reportes
             backend/coverage.xml
-            frontend/coverage/lcov.info
+            frontend/reportes
+            frontend/coverage
           if-no-files-found: ignore
+          retention-days: 30
 
+  # Si fallan las unitarias (o el lint), no se construye nada ni se corre lo que sigue: los
+  # jobs de abajo quedan "skipped" y el PR no se puede mergear (consigna del TP integrador).
   integracion:
     name: integracion
+    needs: [lint-y-tipos, unitarias]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: write # para publicar el informe de pruebas
     services:
       db:
         # Misma imagen que infra/docker-compose.yml.
@@ -161,13 +202,27 @@ jobs:
         working-directory: backend
         run: |
           uv sync --locked
-          uv run python -m pytest -m integracion -v
+          uv run python -m pytest -m integracion -v --junitxml=reportes/integracion.xml \
+            -o junit_suite_name=backend-integracion --cov=app --cov-report=term
+          echo "### Cobertura del backend con las pruebas de integración: $(uv run python -m coverage report --format=total) %" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar el informe de pruebas de integración
+        if: ${{ !cancelled() }}
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2.26.0
+        with:
+          check_name: Informe · pruebas de integración (API + PostGIS + S3)
+          files: backend/reportes/*.xml
+          comment_mode: off
 
   # Recorridos completos en un navegador real contra la app levantada acá mismo:
   # API (uvicorn) + web (build de producción con el proxy /api) + PostGIS + Mailpit.
   e2e:
     name: e2e
+    needs: [lint-y-tipos, unitarias]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write # para publicar el informe de pruebas
     timeout-minutes: 15
     services:
       db:
@@ -260,24 +315,45 @@ jobs:
 
       - name: E2E con Playwright (Chromium, celular)
         working-directory: e2e
+        env:
+          INFORME: e2e
         run: |
           npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
           npx playwright test --project=e2e
 
-      - name: Guardar reporte y logs si falla
-        if: failure()
+      - name: Publicar el informe de pruebas E2E
+        if: ${{ !cancelled() }}
+        uses: EnricoMi/publish-unit-test-result-action/linux@v2.26.0
+        with:
+          check_name: Informe · pruebas E2E (navegador)
+          files: e2e/reportes/*.xml
+          comment_mode: off
+
+      # El informe HTML de Playwright (con trazas si hubo reintentos) queda siempre; los logs
+      # de la API y la web, solo si algo falló.
+      - name: Guardar el informe HTML
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-reporte
+          name: informe-e2e
           path: |
             e2e/playwright-report
             e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Guardar logs si falla
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-logs
+          path: |
             ${{ runner.temp }}/api.log
             ${{ runner.temp }}/web.log
 
   imagenes:
     name: imagenes
+    needs: [lint-y-tipos, unitarias]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

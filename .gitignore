@@ -20,6 +20,9 @@ dist/
 coverage/
 *.tsbuildinfo
 
+# Informes de pruebas en JUnit XML (los genera y publica el pipeline)
+reportes/
+
 # Playwright
 e2e/test-results/
 e2e/playwright-report/
