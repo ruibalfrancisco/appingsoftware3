@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, obtener_settings
 from app.db import obtener_sesion_db
+from app.dominio.gestion import es_personal_municipal
 from app.modelos import Usuario
 from app.seguridad import DatosSesion, SesionInvalidaError, ahora, crear_jwt, leer_jwt
 
@@ -73,3 +74,15 @@ def vecino_verificado(usuario: UsuarioActual) -> Usuario:
 
 
 VecinoVerificado = Annotated[Usuario, Depends(vecino_verificado)]
+
+
+def personal_municipal(usuario: UsuarioActual) -> Usuario:
+    """Back office (CU-07 a CU-10): solo operadores y administradores; un vecino recibe 403."""
+    if not es_personal_municipal(usuario.rol):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, detail="Esta sección es solo para personal municipal"
+        )
+    return usuario
+
+
+PersonalMunicipal = Annotated[Usuario, Depends(personal_municipal)]

@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, EmailStr, Field, StringConstraints
 
 from app.dominio.cuentas import normalizar_email, validar_password
+from app.dominio.estados import EstadoReclamo
 from app.dominio.gravedad import validar_gravedad
 from app.dominio.identidad import normalizar_dni
 
@@ -141,6 +142,82 @@ class ApoyoRegistrado(BaseModel):
     prioridad: float
 
 
+class EntradaDeHistorial(BaseModel):
+    """Un cambio de estado como lo ve el vecino: qué pasó y cuándo, sin quién lo hizo."""
+
+    estado_anterior: str | None
+    estado_nuevo: str
+    comentario: str | None
+    creado_en: datetime
+
+
+class EntradaDeHistorialDeGestion(EntradaDeHistorial):
+    autor: str  # nombre del personal municipal, o "Vecino" para la carga
+
+
+class AreaPublica(BaseModel):
+    id: int
+    nombre: str
+
+
+class ReclamoEnTablero(BaseModel):
+    """Una fila del Tablero municipal y un marcador de su mapa (CU-07, CU-09)."""
+
+    id: int
+    numero: int
+    tipo: TipoPublico
+    estado: str
+    area: str | None
+    descripcion: str
+    direccion: str | None
+    latitud: float
+    longitud: float
+    cantidad_apoyos: int
+    gravedad_promedio: float
+    prioridad: float
+    creado_en: datetime
+    foto_url: str | None
+
+
+class ReclamoDeGestion(BaseModel):
+    """Detalle para el personal municipal (RF-27) con los cambios que se pueden hacer."""
+
+    id: int
+    numero: int
+    tipo: TipoPublico
+    estado: str
+    area: AreaPublica | None
+    descripcion: str
+    direccion: str | None
+    latitud: float
+    longitud: float
+    cantidad_apoyos: int
+    gravedad_promedio: float
+    prioridad: float
+    creado_en: datetime
+    actualizado_en: datetime
+    cerrado_en: datetime | None
+    fotos: list[FotoPublica]
+    historial: list[EntradaDeHistorialDeGestion]
+    transiciones: list[str]
+
+
+class CambioDeEstado(BaseModel):
+    """CU-08: el estado nuevo y lo que exige (RN-05); la foto del después va aparte."""
+
+    estado: EstadoReclamo
+    comentario: Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)] | None = (
+        None
+    )
+    area_id: int | None = None
+
+
+class CambioRegistrado(BaseModel):
+    estado: str
+    transiciones: list[str]
+    notificados: int
+
+
 class ReclamoDetalle(BaseModel):
     """Lo que cualquier vecino puede ver de un reclamo: nunca DNI ni email (RNF-08)."""
 
@@ -157,4 +234,6 @@ class ReclamoDetalle(BaseModel):
     prioridad: float
     creado_en: datetime
     fotos: list[FotoPublica]
+    area: str | None
+    historial: list[EntradaDeHistorial]
     es_propio: bool
