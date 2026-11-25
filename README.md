@@ -5,6 +5,11 @@ urbanos con foto y ubicación, y para que la Municipalidad los gestione por prio
 Trabajo práctico de Ingeniería de Software III: lo que se evalúa es el proceso de integración,
 entrega y despliegue continuo.
 
+- **[decisiones.md](decisiones.md)**: cómo se cumple la consigna, el pipeline, los ambientes y
+  por qué se tomó cada decisión.
+- **[docs/casos-de-prueba.md](docs/casos-de-prueba.md)**: los casos de prueba (unitarias,
+  integración, E2E, smoke e integración en QA).
+
 ## Estructura
 
 ```
